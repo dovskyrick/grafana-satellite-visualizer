@@ -240,6 +240,29 @@ export function computeFOVCelestialProjection(
 }
 
 /**
+ * Compute the line-of-sight visibility radius on Earth's surface for a satellite.
+ * The visibility circle is the boundary where the satellite is exactly on the horizon (0° elevation).
+ * Uses the WGS84 ellipsoid radius at the satellite's latitude for accuracy.
+ *
+ * @param position - Satellite ECEF position (Cartesian3)
+ * @returns ground circle radius in metres, or null if satellite is below Earth's surface
+ */
+export function computeVisibilityLoS(position: Cartesian3): number | null {
+  const nadirPoint = Ellipsoid.WGS84.scaleToGeodeticSurface(position, new Cartesian3());
+  if (!nadirPoint) {
+    return null;
+  }
+  const satMagnitude = Cartesian3.magnitude(position);
+  const earthRadius = Cartesian3.magnitude(nadirPoint);
+  if (satMagnitude <= earthRadius) {
+    return null;
+  }
+  // Angular radius of visibility circle (Earth central angle from nadir to horizon)
+  const angularRadius = Math.acos(earthRadius / satMagnitude);
+  return earthRadius * angularRadius;
+}
+
+/**
  * Create a dummy triangle PolygonHierarchy for use when data is unavailable.
  * This prevents Cesium rendering errors when no valid data exists.
  * 

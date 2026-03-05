@@ -60,10 +60,11 @@ import { css, cx } from '@emotion/css';
 import { useStyles2, ColorPicker } from '@grafana/ui';
 import { Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { getStyles } from './styles/SatelliteVisualizerStyles';
+import { computeVisibilityLoS } from 'utils/projections';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
 
-import { Viewer, Clock, Entity, PointGraphics, LabelGraphics } from 'resium';
+import { Viewer, Clock, Entity, PointGraphics, LabelGraphics, EllipseGraphics } from 'resium';
 import {
   Ion,
   JulianDate,
@@ -83,6 +84,7 @@ import {
   Matrix3,
   Quaternion,
   SampledProperty,
+  CallbackProperty,
 } from 'cesium';
 
 import 'cesium/Build/Cesium/Widgets/widgets.css';
@@ -1076,6 +1078,42 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           })
         }
         
+        {/* Visibility / Line-of-Sight circles - Earth surface coverage per satellite */}
+        {/* Only in Earth & Satellite modes; hidden in Celestial Map */}
+        {options.showVisibilityLoS && selectedMode !== 'celestial' && satellites
+          .filter(sat => !hiddenSatellites.has(sat.id))
+          .map((satellite, satIdx) => {
+            const hue = (satIdx * 47) % 360;
+            const losFill = Color.fromHsl(hue / 360, 0.7, 0.6, 0.12);
+            const losOutline = Color.fromHsl(hue / 360, 0.9, 0.75, 0.85);
+            return (
+              <Entity
+                key={`${satellite.id}-los-visibility`}
+                availability={satellite.availability}
+                position={satellite.position}
+              >
+                <EllipseGraphics
+                  semiMajorAxis={new CallbackProperty((time) => {
+                    const satPos = satellite.position.getValue(time);
+                    if (!satPos) { return 0; }
+                    return computeVisibilityLoS(satPos) ?? 0;
+                  }, false)}
+                  semiMinorAxis={new CallbackProperty((time) => {
+                    const satPos = satellite.position.getValue(time);
+                    if (!satPos) { return 0; }
+                    return computeVisibilityLoS(satPos) ?? 0;
+                  }, false)}
+                  height={1000}
+                  material={losFill}
+                  outline={true}
+                  outlineColor={losOutline}
+                  outlineWidth={2}
+                />
+              </Entity>
+            );
+          })
+        }
+
         {/* Uncertainty Ellipsoids - Per-satellite - Hidden in Celestial Map mode */}
         {/* Only render if global toggle is ON and per-satellite toggle is explicitly ON */}
         {selectedMode !== 'celestial' && options.showAttitudeVisualization && options.showUncertaintyEllipsoids && satellites
