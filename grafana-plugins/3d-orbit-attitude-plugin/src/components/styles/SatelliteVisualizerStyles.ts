@@ -130,6 +130,12 @@ export const getStyles = () => {
       &:active {
         transform: scale(0.98);
       }
+      
+      &:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+      }
     `,
     dropdownMenu: css`
       position: absolute;

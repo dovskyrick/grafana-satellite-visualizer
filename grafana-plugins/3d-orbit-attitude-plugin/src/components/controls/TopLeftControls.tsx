@@ -93,21 +93,23 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
         )}
       </div>
       
-      {/* Camera Angle Dropdown - Options change based on selected mode */}
+      {/* Camera direction - Options change by view mode; disabled in Earth Focus (camera is free) */}
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
+          disabled={selectedMode === 'earth'}
           onClick={() => {
+            if (selectedMode === 'earth') return;
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
           }}
-          title="Camera View"
+          title={selectedMode === 'earth' ? 'Camera direction — free (moving nadir) in Earth Focus mode' : 'Camera direction'}
         >
           <Video size={16} />
           <ChevronDown size={16} />
         </button>
         
-        {isCameraDropdownOpen && (
+        {isCameraDropdownOpen && selectedMode !== 'earth' && (
           <div className={styles.dropdownMenu}>
             {/* Satellite Focus Mode - Satellite-centric camera views */}
             {selectedMode === 'satellite' && (
@@ -211,56 +213,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                 </div>
               </>
             )}
-            
-            {/* Earth Focus Mode - Reference frame selection */}
-            {selectedMode === 'earth' && (
-              <>
-                <div
-                  className={`${styles.dropdownItem} ${earthCameraView === 'icrf' ? 'active' : ''}`}
-                  onClick={() => {
-                    setEarthCameraView('icrf');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement ICRF frame
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>🌌 ICRF</span>
-                  <span className={styles.dropdownItemDescription}>International Celestial Reference Frame</span>
-                </div>
-                <div
-                  className={`${styles.dropdownItem} ${earthCameraView === 'itrf' ? 'active' : ''}`}
-                  onClick={() => {
-                    setEarthCameraView('itrf');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement ITRF frame
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>🌍 ITRF</span>
-                  <span className={styles.dropdownItemDescription}>International Terrestrial Reference Frame</span>
-                </div>
-                <div
-                  className={`${styles.dropdownItem} ${earthCameraView === 'gcrf' ? 'active' : ''}`}
-                  onClick={() => {
-                    setEarthCameraView('gcrf');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement GCRF frame
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>🔭 GCRF</span>
-                  <span className={styles.dropdownItemDescription}>Geocentric Celestial Reference Frame</span>
-                </div>
-                <div
-                  className={`${styles.dropdownItem} ${earthCameraView === 'teme' ? 'active' : ''}`}
-                  onClick={() => {
-                    setEarthCameraView('teme');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement TEME frame
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>🛰️ TEME</span>
-                  <span className={styles.dropdownItemDescription}>True Equator Mean Equinox</span>
-                </div>
-              </>
-            )}
+            {/* Earth Focus: no options — camera direction dropdown is disabled; camera is free (moving nadir) */}
           </div>
         )}
       </div>
