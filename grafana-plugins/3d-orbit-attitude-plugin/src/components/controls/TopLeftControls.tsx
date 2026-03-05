@@ -103,7 +103,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
           }}
-          title={selectedMode === 'earth' ? 'Camera direction — free (moving nadir) in Earth Focus mode' : 'Camera direction'}
+          title={selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' : 'Camera direction'}
         >
           <Video size={16} />
           <ChevronDown size={16} />
