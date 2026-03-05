@@ -143,6 +143,17 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
       defaultValue: true,
       showIf: (config: any) => config.showAttitudeVisualization,
     })
+
+    // ============================================================
+    // 🌐 LINE OF SIGHT / VISIBILITY AREA
+    // ============================================================
+    .addBooleanSwitch({
+      path: 'showVisibilityLoS',
+      name: '🌐 Show Visibility / Line of Sight',
+      description: 'Display the Earth visibility area (line-of-sight coverage) for all satellites. Mutually exclusive with FOV Footprint.',
+      defaultValue: false,
+      showIf: (config: any) => config.showAttitudeVisualization,
+    })
     .addBooleanSwitch({
       path: 'showCelestialFOV',
       name: '🔭 Show Celestial FOV',

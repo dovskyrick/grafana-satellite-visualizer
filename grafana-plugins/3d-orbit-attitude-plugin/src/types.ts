@@ -22,6 +22,7 @@ export interface SimpleOptions {
 
   showFOVFootprint: boolean;
   showCelestialFOV: boolean;
+  showVisibilityLoS: boolean;
 
   showUncertaintyEllipsoids: boolean;
   uncertaintyOpacityMode: UncertaintyOpacityMode;

@@ -89,7 +89,7 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 interface Props extends PanelProps<SimpleOptions> {}
 
-export const SatelliteVisualizer: React.FC<Props> = ({ options, data, timeRange, width, height, eventBus }) => {
+export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange, data, timeRange, width, height, eventBus }) => {
   Ion.defaultAccessToken = options.accessToken;
 
   const styles = useStyles2(getStyles);
@@ -133,6 +133,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, data, timeRange,
   // Hover tooltip state
   const [hoveredEntityName, setHoveredEntityName] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // LoS warning modal state
+  const [showLoSWarningModal, setShowLoSWarningModal] = useState<boolean>(false);
   
   // Per-satellite render settings (for future features like transparent cones)
   const [satelliteRenderSettings, setSatelliteRenderSettings] = useState<Map<string, {
@@ -499,6 +502,21 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, data, timeRange,
       }
     }
   }, [selectedMode, isTracked, trackedSatelliteId, flyToSatelliteNadirView]);
+
+  // Mutual exclusion: turning on LoS turns off FOV Footprint, and vice versa
+  useEffect(() => {
+    if (options.showVisibilityLoS && options.showFOVFootprint) {
+      onOptionsChange({ ...options, showFOVFootprint: false });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.showVisibilityLoS]);
+
+  useEffect(() => {
+    if (options.showFOVFootprint && options.showVisibilityLoS) {
+      onOptionsChange({ ...options, showVisibilityLoS: false });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.showFOVFootprint]);
 
   // Focus satellite settings modal when it opens (for ESC key handling)
   useEffect(() => {
@@ -1499,6 +1517,58 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, data, timeRange,
           </div>
         );
       })()}
+
+      {/* Visibility / Line-of-Sight warning modal */}
+      {showLoSWarningModal && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: '#1c1c2e',
+              border: '1px solid #444',
+              borderRadius: 8,
+              padding: '24px 28px',
+              maxWidth: 420,
+              color: '#e0e0e0',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 10, color: '#fff' }}>
+              🌐 Visibility / Line of Sight
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 18, color: '#aaa' }}>
+              Optimal visualization of the satellite visibility area requires the{' '}
+              <strong style={{ color: '#fff' }}>FOV Footprint</strong> layer to be disabled.
+              Both layers overlap on the Earth surface and may produce visual clutter.
+              <br /><br />
+              Disable <em>Show FOV Footprint</em> in the panel settings for the best result.
+            </div>
+            <button
+              onClick={() => setShowLoSWarningModal(false)}
+              style={{
+                background: '#3b6fd4',
+                border: 'none',
+                borderRadius: 5,
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: 13,
+                padding: '7px 18px',
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
