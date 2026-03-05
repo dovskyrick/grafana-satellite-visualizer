@@ -1006,13 +1006,13 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, data, timeRange,
         }
         
         {/* Sensor Visualization (Cones, Footprints, Celestial Projections) */}
-        {/* Satellite & Celestial modes: show only tracked satellite's FOVs. Earth mode: hide all FOVs */}
+        {/* Satellite & Celestial modes: show only tracked satellite's FOVs. Earth mode: show earth footprints only */}
         {options.showAttitudeVisualization && satellites
           .filter(sat => !hiddenSatellites.has(sat.id))
           .filter(sat => {
-            // Earth Focus mode: hide all FOVs for clean Earth view
+            // Earth Focus mode: show all visible satellites so footprints render
             if (selectedMode === 'earth') {
-              return false;
+              return true;
             }
             
             // Satellite Focus & Celestial Map modes: show only tracked satellite's FOVs
@@ -1033,8 +1033,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, data, timeRange,
               // Get the actual color for this sensor (respecting user overrides)
               const sensorColor = _getSensorColor(satellite.id, sensor.id, sensor, idx);
               
-              // Override options for Celestial Map mode: hide sensor cones
-              const effectiveOptions = selectedMode === 'celestial' 
+              // Earth Focus mode: only show earth surface footprints (no cones, no celestial projection)
+              // Celestial Map mode: hide sensor cones (only show celestial FOV projection)
+              const effectiveOptions = selectedMode === 'earth'
+                ? { ...options, showSensorCones: false, showCelestialFOV: false }
+                : selectedMode === 'celestial' 
                 ? { ...options, showSensorCones: false }
                 : options;
               
