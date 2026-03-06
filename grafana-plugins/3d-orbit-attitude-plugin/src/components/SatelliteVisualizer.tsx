@@ -1556,6 +1556,46 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 <text x="51.5" y="37.8" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">30°</text>
                 <text x="51.5" y="24.5" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">60°</text>
 
+                {/* Orbit tracks — sampled from availability interval, drawn under position dots */}
+                {(() => {
+                  const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
+                  if (!gs) { return null; }
+                  const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
+                  const R_HORIZON = 40;
+                  const NUM_SAMPLES = 120;
+
+                  return satellites
+                    .filter(sat => !hiddenSatellites.has(sat.id))
+                    .map((sat, idx) => {
+                      const interval = sat.availability.get(0);
+                      if (!interval) { return null; }
+                      const duration = JulianDate.secondsDifference(interval.stop, interval.start);
+                      const step = duration / NUM_SAMPLES;
+                      const hue = (idx * 47) % 360;
+                      const trackDots: JSX.Element[] = [];
+
+                      for (let i = 0; i <= NUM_SAMPLES; i++) {
+                        const t = JulianDate.addSeconds(interval.start, i * step, new JulianDate());
+                        const satPos = sat.position.getValue(t);
+                        if (!satPos) { continue; }
+                        const azel = computeAzEl(gsPos, satPos);
+                        if (!azel || azel.el < 0) { continue; }
+                        const r = R_HORIZON * (90 - azel.el) / 90;
+                        const azRad = (azel.az * Math.PI) / 180;
+                        trackDots.push(
+                          <circle
+                            key={`${sat.id}-t${i}`}
+                            cx={50 + r * Math.sin(azRad)}
+                            cy={50 - r * Math.cos(azRad)}
+                            r="0.5"
+                            fill={`hsla(${hue},80%,65%,0.4)`}
+                          />
+                        );
+                      }
+                      return trackDots;
+                    });
+                })()}
+
                 {/* Satellite dots — only those above the horizon */}
                 {(() => {
                   const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
