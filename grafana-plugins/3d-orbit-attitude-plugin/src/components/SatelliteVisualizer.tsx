@@ -1227,6 +1227,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   sensorIndex={idx}
                   transparentMode={satelliteRenderSettings.get(satellite.id)?.transparentCones || false}
                   customColor={sensorColor}
+                  selectedMode={selectedMode}
                 />
               );
             });

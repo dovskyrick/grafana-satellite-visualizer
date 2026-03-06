@@ -139,6 +139,7 @@ export interface SensorVisualizationProps {
   sensorIndex: number; // For color selection
   transparentMode?: boolean; // Toggle between wireframe and transparent rendering
   customColor?: string; // Optional custom color from UI settings (hex string)
+  selectedMode?: string;
 }
 
 export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = ({
@@ -150,6 +151,7 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
   sensorIndex,
   transparentMode = false, // Default to wireframe mode
   customColor, // User-selected color from settings UI
+  selectedMode,
 }) => {
   // Priority for color selection:
   // 1. customColor (from UI settings - highest priority)
@@ -371,6 +373,47 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
       )}
       
       {/* 3. Celestial FOV Projection */}
+      {/* Celestial FOV label — shown in satellite focus mode only when the RA/Dec grid is off */}
+      {options.showCelestialFOV && selectedMode === 'satellite' && !options.showRADecGrid && (
+        <Entity
+          key={`${satellite.id}-sensor-celestial-label-${sensor.id}`}
+          availability={satellite.availability}
+          position={new CallbackProperty((time) => {
+            const satPos = satellite.position.getValue(time);
+            const satOrient = satellite.orientation.getValue(time);
+            if (!satPos || !satOrient) { return Cartesian3.ZERO; }
+            const sensorBodyQuat = new Quaternion(
+              sensor.orientation.qx, sensor.orientation.qy,
+              sensor.orientation.qz, sensor.orientation.qw
+            );
+            const sensorWorldQuat = Quaternion.multiply(satOrient, sensorBodyQuat, new Quaternion());
+            const rotMatrix = Matrix3.fromQuaternion(sensorWorldQuat);
+            const sensorDir = Cartesian3.normalize(
+              Matrix3.multiplyByVector(rotMatrix, new Cartesian3(0, 0, 1), new Cartesian3()),
+              new Cartesian3()
+            );
+            const celestialRadius = Ellipsoid.WGS84.maximumRadius * 100;
+            return Cartesian3.add(
+              satPos,
+              Cartesian3.multiplyByScalar(sensorDir, celestialRadius, new Cartesian3()),
+              new Cartesian3()
+            );
+          }, false) as any}
+        >
+          <LabelGraphics
+            text={`${sensor.name} FOV`}
+            font="12px sans-serif"
+            fillColor={Color.fromBytes(sensorColor.r, sensorColor.g, sensorColor.b, 220)}
+            outlineColor={Color.BLACK}
+            outlineWidth={2}
+            style={LabelStyle.FILL_AND_OUTLINE}
+            pixelOffset={new Cartesian2(0, -14)}
+            horizontalOrigin={HorizontalOrigin.CENTER}
+            verticalOrigin={VerticalOrigin.BOTTOM}
+          />
+        </Entity>
+      )}
+
       {options.showCelestialFOV && (
         <Entity 
           key={`${satellite.id}-sensor-celestial-${sensor.id}`}
