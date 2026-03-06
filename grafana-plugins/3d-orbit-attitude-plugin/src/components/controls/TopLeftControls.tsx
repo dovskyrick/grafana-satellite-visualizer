@@ -35,6 +35,8 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
   showICRFAxes,
   setShowICRFAxes,
   onNadirViewClick,
+  onCrossTrackViewClick,
+  onAlongTrackViewClick,
   trackedSatelliteId,
   styles,
 }) => {
@@ -129,15 +131,26 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                   <span className={styles.dropdownItemDescription}>View from directly above</span>
                 </div>
                 <div
-                  className={`${styles.dropdownItem} ${satelliteCameraView === 'lvlh' ? 'active' : ''}`}
+                  className={`${styles.dropdownItem} ${satelliteCameraView === 'cross-track' ? 'active' : ''}`}
                   onClick={() => {
-                    setSatelliteCameraView('lvlh');
+                    setSatelliteCameraView('cross-track');
                     setIsCameraDropdownOpen(false);
-                    // TODO: Implement LVLH view
+                    if (trackedSatelliteId && onCrossTrackViewClick) { onCrossTrackViewClick(); }
                   }}
                 >
-                  <span className={styles.dropdownItemLabel}>📐 LVLH View</span>
-                  <span className={styles.dropdownItemDescription}>Local vertical/horizontal frame</span>
+                  <span className={styles.dropdownItemLabel}>↔️ Cross-Track View</span>
+                  <span className={styles.dropdownItemDescription}>Camera along orbit normal</span>
+                </div>
+                <div
+                  className={`${styles.dropdownItem} ${satelliteCameraView === 'along-track' ? 'active' : ''}`}
+                  onClick={() => {
+                    setSatelliteCameraView('along-track');
+                    setIsCameraDropdownOpen(false);
+                    if (trackedSatelliteId && onAlongTrackViewClick) { onAlongTrackViewClick(); }
+                  }}
+                >
+                  <span className={styles.dropdownItemLabel}>➡️ Along-Track View</span>
+                  <span className={styles.dropdownItemDescription}>From behind satellite, motion forward</span>
                 </div>
                 <div
                   className={`${styles.dropdownItem} ${satelliteCameraView === 'fixed' ? 'active' : ''}`}
@@ -149,17 +162,6 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                 >
                   <span className={styles.dropdownItemLabel}>🧭 Fixed Inertial</span>
                   <span className={styles.dropdownItemDescription}>Inertial reference frame</span>
-                </div>
-                <div
-                  className={`${styles.dropdownItem} ${satelliteCameraView === 'free' ? 'active' : ''}`}
-                  onClick={() => {
-                    setSatelliteCameraView('free');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement free camera mode
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>🎮 Free Camera</span>
-                  <span className={styles.dropdownItemDescription}>Manual camera control</span>
                 </div>
               </>
             )}

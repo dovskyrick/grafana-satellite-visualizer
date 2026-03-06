@@ -118,7 +118,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const [selectedMode, setSelectedMode] = useState<'satellite' | 'earth' | 'celestial'>('satellite');
   
   // Camera view states - different per mode
-  const [satelliteCameraView, setSatelliteCameraView] = useState<'nadir' | 'lvlh' | 'fixed' | 'free'>('nadir');
+  const [satelliteCameraView, setSatelliteCameraView] = useState<'nadir' | 'cross-track' | 'along-track' | 'fixed'>('nadir');
   const [celestialCameraView, setCelestialCameraView] = useState<'sun' | 'lvlh-orbit' | 'star' | 'groundstation'>('sun');
   const [earthCameraView, setEarthCameraView] = useState<'icrf' | 'itrf' | 'gcrf' | 'teme'>('icrf');
   
@@ -197,23 +197,23 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     ];
   }, []);
 
-  // LVLH Axes - Medium grey, all same brightness (70% opacity)
+  // LVLH Axes - Medium grey; labels: Radial (R), Along-track (A), Cross-track (C)
   const lvlhVectors = React.useMemo(() => {
     return [
       { 
         axis: new Cartesian3(1, 0, 0), 
         color: Color.fromBytes(180, 180, 185, 179), // Medium grey
-        name: 'LVLH-X' 
+        name: 'Cross-track' 
       },
       { 
         axis: new Cartesian3(0, 1, 0), 
         color: Color.fromBytes(180, 180, 185, 179), // Medium grey
-        name: 'LVLH-Y' 
+        name: 'Along-track' 
       },
       { 
         axis: new Cartesian3(0, 0, 1), 
         color: Color.fromBytes(180, 180, 185, 179), // Medium grey
-        name: 'LVLH-Z' 
+        name: 'Radial' 
       },
     ];
   }, []);
@@ -478,7 +478,73 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
     console.log(`🚀 Flying to ${satellite.name} - Nadir View (${distance}m above, ${duration}s)`);
   }, [satellites, viewerRef]);
-  
+
+  const flyToCrossTrackView = useCallback((satelliteId: string, duration = 0.5, distance = 4) => {
+    const viewer = viewerRef.current?.cesiumElement;
+    const satellite = satellites.find(s => s.id === satelliteId);
+    if (!viewer || !satellite) { return; }
+
+    const currentTime = viewer.clock.currentTime;
+    const satPos = satellite.position.getValue(currentTime);
+    if (!satPos) { return; }
+
+    // Cross-track = orbit normal = normalize(position × velocity)
+    const nextTime = JulianDate.addSeconds(currentTime, 1, new JulianDate());
+    const nextPos = satellite.position.getValue(nextTime);
+    if (!nextPos) { return; }
+    const velocity = Cartesian3.subtract(nextPos, satPos, new Cartesian3());
+    const crossTrack = Cartesian3.normalize(
+      Cartesian3.cross(satPos, velocity, new Cartesian3()), new Cartesian3()
+    );
+
+    const cameraPosition = Cartesian3.add(
+      satPos, Cartesian3.multiplyByScalar(crossTrack, distance, new Cartesian3()), new Cartesian3()
+    );
+    const radial = Cartesian3.normalize(satPos, new Cartesian3());
+
+    viewer.camera.flyTo({
+      destination: cameraPosition,
+      orientation: {
+        direction: Cartesian3.negate(crossTrack, new Cartesian3()),
+        up: radial,
+      },
+      duration,
+    });
+  }, [satellites, viewerRef]);
+
+  const flyToAlongTrackView = useCallback((satelliteId: string, duration = 0.5, distance = 4) => {
+    const viewer = viewerRef.current?.cesiumElement;
+    const satellite = satellites.find(s => s.id === satelliteId);
+    if (!viewer || !satellite) { return; }
+
+    const currentTime = viewer.clock.currentTime;
+    const satPos = satellite.position.getValue(currentTime);
+    if (!satPos) { return; }
+
+    // Along-track = direction of motion
+    const nextTime = JulianDate.addSeconds(currentTime, 1, new JulianDate());
+    const nextPos = satellite.position.getValue(nextTime);
+    if (!nextPos) { return; }
+    const alongTrack = Cartesian3.normalize(
+      Cartesian3.subtract(nextPos, satPos, new Cartesian3()), new Cartesian3()
+    );
+
+    // Place camera behind satellite (opposite to velocity)
+    const cameraPosition = Cartesian3.add(
+      satPos, Cartesian3.multiplyByScalar(Cartesian3.negate(alongTrack, new Cartesian3()), distance, new Cartesian3()), new Cartesian3()
+    );
+    const radial = Cartesian3.normalize(satPos, new Cartesian3());
+
+    viewer.camera.flyTo({
+      destination: cameraPosition,
+      orientation: {
+        direction: alongTrack,
+        up: radial,
+      },
+      duration,
+    });
+  }, [satellites, viewerRef]);
+
   // Auto-track satellite and adjust camera based on mode
   useEffect(() => {
     if (selectedMode === 'satellite' || selectedMode === 'celestial') {
@@ -816,6 +882,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             showICRFAxes={showICRFAxes}
             setShowICRFAxes={setShowICRFAxes}
             onNadirViewClick={() => trackedSatelliteId && flyToSatelliteNadirView(trackedSatelliteId)}
+            onCrossTrackViewClick={() => trackedSatelliteId && flyToCrossTrackView(trackedSatelliteId)}
+            onAlongTrackViewClick={() => trackedSatelliteId && flyToAlongTrackView(trackedSatelliteId)}
             trackedSatelliteId={trackedSatelliteId}
             styles={styles}
           />
