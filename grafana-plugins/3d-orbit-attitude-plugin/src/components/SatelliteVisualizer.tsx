@@ -1556,13 +1556,13 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 <text x="51.5" y="37.8" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">30°</text>
                 <text x="51.5" y="24.5" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">60°</text>
 
-                {/* Orbit tracks — sampled from availability interval, drawn under position dots */}
+                {/* Orbit tracks — sampled at 1-minute steps so arcs stay smooth regardless of data density */}
                 {(() => {
                   const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
                   if (!gs) { return null; }
                   const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
                   const R_HORIZON = 40;
-                  const NUM_SAMPLES = 120;
+                  const STEP_SECONDS = 60; // fine enough for smooth polar arcs at any data density
 
                   return satellites
                     .filter(sat => !hiddenSatellites.has(sat.id))
@@ -1570,15 +1570,15 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       const interval = sat.availability.get(0);
                       if (!interval) { return null; }
                       const duration = JulianDate.secondsDifference(interval.stop, interval.start);
-                      const step = duration / NUM_SAMPLES;
+                      const numSteps = Math.ceil(duration / STEP_SECONDS);
                       const hue = (idx * 47) % 360;
                       const trackDots: JSX.Element[] = [];
 
                       // Build SVG path: M to start each above-horizon segment, L to continue
                       let pathD = '';
                       let inSegment = false;
-                      for (let i = 0; i <= NUM_SAMPLES; i++) {
-                        const t = JulianDate.addSeconds(interval.start, i * step, new JulianDate());
+                      for (let i = 0; i <= numSteps; i++) {
+                        const t = JulianDate.addSeconds(interval.start, i * STEP_SECONDS, new JulianDate());
                         const satPos = sat.position.getValue(t);
                         if (!satPos) { inSegment = false; continue; }
                         const azel = computeAzEl(gsPos, satPos);
