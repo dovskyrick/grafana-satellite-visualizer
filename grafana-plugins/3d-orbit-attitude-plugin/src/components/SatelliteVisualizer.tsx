@@ -1007,6 +1007,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             // Extend camera far clipping plane for celestial grid visibility
             const celestialDistance = earthRadius * 100;
             camera.frustum.far = celestialDistance * 3;
+
+            // Ensure timeline and animation widgets sit above the GS POV overlay (zIndex 9)
+            const tl = viewer.timeline?.container as HTMLElement | undefined;
+            const an = viewer.animation?.container as HTMLElement | undefined;
+            if (tl) { tl.style.zIndex = '10'; }
+            if (an) { an.style.zIndex = '10'; }
             
             // Add Carto options to BaseLayerPicker (runs in ref callback for guaranteed timing)
             // Note: Default imagery setup is in useEffect to prevent reset on re-renders
@@ -1716,7 +1722,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             position: 'absolute',
             inset: 0,
             background: '#000',
-            zIndex: 100,
+            zIndex: 9,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
