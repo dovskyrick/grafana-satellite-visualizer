@@ -846,7 +846,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
   // Generate RA/Dec celestial grid
   useEffect(() => {
-    if (!options.showRADecGrid || !timestamp) {
+    if ((!options.showRADecGrid && selectedMode !== 'celestial') || !timestamp) {
       setRALines([]);
       setDecLines([]);
       setGridLabels([]);
@@ -877,7 +877,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     } else {
       setGridLabels([]);
     }
-  }, [options.showRADecGrid, options.raSpacing, options.decSpacing, options.showGridLabels, timestamp]);
+  }, [options.showRADecGrid, selectedMode, options.raSpacing, options.decSpacing, options.showGridLabels, timestamp]);
 
   // Setup default imagery once when Viewer is created (for persistence)
   useEffect(() => {
@@ -1293,7 +1293,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         }
         
         {/* RA/Dec Celestial Grid */}
-        {options.showAttitudeVisualization && options.showRADecGrid && (
+        {options.showAttitudeVisualization && (options.showRADecGrid || selectedMode === 'celestial') && (
           <CelestialGridRenderer
             options={options}
             raLines={raLines}
