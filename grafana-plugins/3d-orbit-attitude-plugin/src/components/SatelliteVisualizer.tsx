@@ -1482,13 +1482,36 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 viewBox="0 0 100 100"
                 preserveAspectRatio="xMidYMid meet"
               >
-                {/* Horizon circle — outer boundary of sky chart (0° elevation) */}
-                <circle
-                  cx="50" cy="50" r="45"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.6)"
-                  strokeWidth="0.4"
-                />
+                {/* Elevation rings: 0° (horizon), 30°, 60°, zenith dot */}
+                <circle cx="50" cy="50" r="45"  fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+                <circle cx="50" cy="50" r="30"  fill="none" stroke="rgba(255,255,255,0.3)"  strokeWidth="0.3" />
+                <circle cx="50" cy="50" r="15"  fill="none" stroke="rgba(255,255,255,0.3)"  strokeWidth="0.3" />
+                <circle cx="50" cy="50" r="0.8" fill="rgba(255,255,255,0.5)" />
+
+                {/* Azimuth radials — 6 lines at 30° spacing (N at top, clockwise) */}
+                {[0, 30, 60, 90, 120, 150].map((deg) => {
+                  const rad = (deg * Math.PI) / 180;
+                  const x1 = 50 + 45 * Math.sin(rad);
+                  const y1 = 50 - 45 * Math.cos(rad);
+                  const x2 = 50 - 45 * Math.sin(rad);
+                  const y2 = 50 + 45 * Math.cos(rad);
+                  return (
+                    <line key={deg}
+                      x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke="rgba(255,255,255,0.2)" strokeWidth="0.3"
+                    />
+                  );
+                })}
+
+                {/* Cardinal labels just outside horizon ring */}
+                <text x="50"   y="3.5"  textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="3.5">N</text>
+                <text x="96.5" y="51.5" textAnchor="start"  fill="rgba(255,255,255,0.7)" fontSize="3.5">E</text>
+                <text x="50"   y="98.5" textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="3.5">S</text>
+                <text x="3.5"  y="51.5" textAnchor="end"    fill="rgba(255,255,255,0.7)" fontSize="3.5">W</text>
+
+                {/* Elevation labels */}
+                <text x="51.5" y="21.2" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">60°</text>
+                <text x="51.5" y="36.2" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">30°</text>
               </svg>
             </div>
           )}
