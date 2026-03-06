@@ -1465,8 +1465,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             )}
           </div>
 
-          {/* Ground Station POV — black overlay covering the 3D scene only (inside mainContent, sidebar unaffected) */}
-          {/* Cesium keeps rendering in the background so satellite positions remain accessible */}
+          {/* Ground Station POV — polar sky chart overlay (Cesium keeps rendering underneath) */}
           {selectedMode === 'groundstation' && (
             <div
               style={{
@@ -1474,16 +1473,23 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 inset: 0,
                 background: '#000',
                 zIndex: 9,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'rgba(255,255,255,0.25)',
-                fontSize: 13,
-                letterSpacing: 2,
                 pointerEvents: 'none',
               }}
             >
-              GROUND STATION POV — SKY CHART COMING SOON
+              <svg
+                width="100%"
+                height="100%"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {/* Horizon circle — outer boundary of sky chart (0° elevation) */}
+                <circle
+                  cx="50" cy="50" r="45"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.6)"
+                  strokeWidth="0.4"
+                />
+              </svg>
             </div>
           )}
         </div>
