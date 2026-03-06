@@ -54,8 +54,7 @@
 **/yarn.lock
 **/pnpm-lock.yaml
 
-# Planning & documentation (include only when explicitly selected)
-**/plans-broad-scope/**
+
 # Exclude large documentation files (keep README.md files for context)
 GRAFANA-FORUM-POST.md
 PRE-PUBLICATION-CHECKLIST.md
