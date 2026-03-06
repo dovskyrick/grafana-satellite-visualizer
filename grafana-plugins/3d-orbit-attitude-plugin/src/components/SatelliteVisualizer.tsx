@@ -569,8 +569,71 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           console.log('🌍 Free camera enabled (Earth Focus mode - Nadir view)');
         }, duration * 1000 + 100); // Animation duration + small buffer
       }
+    } else if (selectedMode === 'groundstation') {
+      // Ground Station POV: fly camera to 2m above the GS eye point, looking straight up (zenith)
+      setIsTracked(false);
+      const viewer = viewerRef.current?.cesiumElement;
+
+      // Auto-select first GS and open sidebar to ground stations tab if none selected
+      let effectiveGsId = trackedGroundStationId;
+      if (!effectiveGsId && groundStations.length > 0) {
+        effectiveGsId = groundStations[0].id;
+        setTrackedGroundStationId(effectiveGsId);
+        setIsSidebarOpen(true);
+        setActiveTab('groundstations');
+      }
+
+      const gs = groundStations.find(g => g.id === effectiveGsId);
+      if (!viewer || !gs) { return; }
+
+      const eyeHeight = gs.altitude + 5;   // 5 m above GS altitude = focal point
+      const camHeight = gs.altitude + 7;   // camera sits 2 m above focal point
+      const gsPosition = Cartesian3.fromDegrees(gs.longitude, gs.latitude, camHeight);
+
+      // Radial (outward) direction at this surface point = zenith = "up" for the viewer
+      const zenith = Ellipsoid.WGS84.geodeticSurfaceNormal(
+        Cartesian3.fromDegrees(gs.longitude, gs.latitude, eyeHeight), new Cartesian3()
+      );
+      // Camera looks straight up; pick any consistent "right" direction (east)
+      const east = Cartesian3.normalize(
+        Cartesian3.cross(Cartesian3.UNIT_Z, zenith, new Cartesian3()), new Cartesian3()
+      );
+
+      viewer.camera.flyTo({
+        destination: gsPosition,
+        orientation: {
+          direction: zenith,   // looking toward the sky
+          up: east,            // "up" on screen = east horizon
+        },
+        duration: 1.5,
+      });
+      console.log(`📡 Ground Station POV: ${gs.name} (alt ${gs.altitude}m)`);
     }
-  }, [selectedMode, isTracked, trackedSatelliteId, flyToSatelliteNadirView]);
+  }, [selectedMode, isTracked, trackedSatelliteId, trackedGroundStationId, groundStations, flyToSatelliteNadirView, viewerRef]);
+
+  // Re-fly when user picks a different ground station while already in GS POV mode
+  useEffect(() => {
+    if (selectedMode !== 'groundstation' || !trackedGroundStationId) { return; }
+    const viewer = viewerRef.current?.cesiumElement;
+    const gs = groundStations.find(g => g.id === trackedGroundStationId);
+    if (!viewer || !gs) { return; }
+
+    const camHeight = gs.altitude + 7;
+    const gsPosition = Cartesian3.fromDegrees(gs.longitude, gs.latitude, camHeight);
+    const zenith = Ellipsoid.WGS84.geodeticSurfaceNormal(
+      Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude + 5), new Cartesian3()
+    );
+    const east = Cartesian3.normalize(
+      Cartesian3.cross(Cartesian3.UNIT_Z, zenith, new Cartesian3()), new Cartesian3()
+    );
+
+    viewer.camera.flyTo({
+      destination: gsPosition,
+      orientation: { direction: zenith, up: east },
+      duration: 1.0,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackedGroundStationId]);
 
   // Mutual exclusion: turning on LoS turns off FOV Footprint, and vice versa
   useEffect(() => {
