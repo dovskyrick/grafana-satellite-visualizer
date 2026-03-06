@@ -1574,24 +1574,32 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       const hue = (idx * 47) % 360;
                       const trackDots: JSX.Element[] = [];
 
+                      // Build SVG path: M to start each above-horizon segment, L to continue
+                      let pathD = '';
+                      let inSegment = false;
                       for (let i = 0; i <= NUM_SAMPLES; i++) {
                         const t = JulianDate.addSeconds(interval.start, i * step, new JulianDate());
                         const satPos = sat.position.getValue(t);
-                        if (!satPos) { continue; }
+                        if (!satPos) { inSegment = false; continue; }
                         const azel = computeAzEl(gsPos, satPos);
-                        if (!azel || azel.el < 0) { continue; }
+                        if (!azel || azel.el < 0) { inSegment = false; continue; }
                         const r = R_HORIZON * (90 - azel.el) / 90;
                         const azRad = (azel.az * Math.PI) / 180;
-                        trackDots.push(
-                          <circle
-                            key={`${sat.id}-t${i}`}
-                            cx={50 + r * Math.sin(azRad)}
-                            cy={50 - r * Math.cos(azRad)}
-                            r="0.5"
-                            fill={`hsla(${hue},80%,65%,0.4)`}
-                          />
-                        );
+                        const x = (50 + r * Math.sin(azRad)).toFixed(2);
+                        const y = (50 - r * Math.cos(azRad)).toFixed(2);
+                        pathD += inSegment ? ` L${x} ${y}` : ` M${x} ${y}`;
+                        inSegment = true;
                       }
+                      if (!pathD) { return null; }
+                      trackDots.push(
+                        <path
+                          key={`${sat.id}-track`}
+                          d={pathD}
+                          fill="none"
+                          stroke={`hsla(${hue},80%,65%,0.5)`}
+                          strokeWidth="0.4"
+                        />
+                      );
                       return trackDots;
                     });
                 })()}
