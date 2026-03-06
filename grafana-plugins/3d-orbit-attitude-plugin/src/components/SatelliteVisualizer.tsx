@@ -91,6 +91,35 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 interface Props extends PanelProps<SimpleOptions> {}
 
+// ─── Ground Station POV — az/el helper ───────────────────────────────────────
+// Returns azimuth (0–360°, clockwise from North) and elevation (–90–90°) of
+// satPos as seen from gsPos, or null if either position is unavailable.
+function computeAzEl(
+  gsPos: Cartesian3,
+  satPos: Cartesian3
+): { az: number; el: number } | null {
+  const diff = Cartesian3.subtract(satPos, gsPos, new Cartesian3());
+  const range = Cartesian3.magnitude(diff);
+  if (range === 0) { return null; }
+
+  const up = Ellipsoid.WGS84.geodeticSurfaceNormal(gsPos, new Cartesian3());
+  const east = Cartesian3.normalize(
+    Cartesian3.cross(Cartesian3.UNIT_Z, up, new Cartesian3()), new Cartesian3()
+  );
+  const north = Cartesian3.normalize(
+    Cartesian3.cross(up, east, new Cartesian3()), new Cartesian3()
+  );
+
+  const e = Cartesian3.dot(diff, east);
+  const n = Cartesian3.dot(diff, north);
+  const u = Cartesian3.dot(diff, up);
+
+  const el = (Math.asin(u / range) * 180) / Math.PI;
+  const az = ((Math.atan2(e, n) * 180) / Math.PI + 360) % 360;
+  return { az, el };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── Ground Station POV camera settings ──────────────────────────────────────
 // Tweak GS_POV_FOV_DEG to change the field of view when in Ground Station mode.
 // 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
@@ -108,6 +137,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   const [timestamp, setTimestamp] = useState<JulianDate | null>(null);
+  const [gsPovClockTime, setGsPovClockTime] = useState<JulianDate | null>(null);
   const [satellites, setSatellites] = useState<ParsedSatellite[]>([]);
   const [groundStations, setGroundStations] = useState<GroundStation[]>([]);
   const [trackedSatelliteId, setTrackedSatelliteId] = useState<string | null>(null);
@@ -651,6 +681,19 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackedGroundStationId]);
+
+  // Drive SVG sky chart updates from the live Cesium clock (only in GS POV mode)
+  useEffect(() => {
+    if (selectedMode !== 'groundstation') { setGsPovClockTime(null); return; }
+    let rafId: number;
+    const tick = () => {
+      const viewer = viewerRef.current?.cesiumElement;
+      if (viewer) { setGsPovClockTime(JulianDate.clone(viewer.clock.currentTime)); }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [selectedMode, viewerRef]);
 
   // Mutual exclusion: turning on LoS turns off FOV Footprint, and vice versa
   useEffect(() => {
@@ -1512,6 +1555,47 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 {/* Elevation labels */}
                 <text x="51.5" y="37.8" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">30°</text>
                 <text x="51.5" y="24.5" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">60°</text>
+
+                {/* TEST: fixed red dot at 45° az, 45° el */}
+                <circle cx={50 + 40 * (90-45)/90 * Math.sin(Math.PI/4)} cy={50 - 40 * (90-45)/90 * Math.cos(Math.PI/4)} r="1.5" fill="red" />
+
+                {/* TEST: blue dot that moves bottom→top over a 60s cycle driven by live clock */}
+                {gsPovClockTime && (() => {
+                  const t = (gsPovClockTime.secondsOfDay % 60) / 60; // 0→1 over 60s
+                  const y = 85 - t * 70; // y=85 (bottom) → y=15 (top)
+                  return <circle cx="50" cy={y} r="1.5" fill="cyan" />;
+                })()}
+
+                {/* Satellite dots — only those above the horizon */}
+                {(() => {
+                  const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
+                  if (!gs || !gsPovClockTime) { return null; }
+                  const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
+
+                  return satellites
+                    .filter(sat => !hiddenSatellites.has(sat.id))
+                    .map((sat, idx) => {
+                      const satPos = sat.position.getValue(gsPovClockTime);
+                      if (!satPos) { return null; }
+                      const azel = computeAzEl(gsPos, satPos);
+                      if (!azel || azel.el < 0) { return null; }
+
+                      const R_HORIZON = 40;
+                      const r = R_HORIZON * (90 - azel.el) / 90;
+                      const azRad = (azel.az * Math.PI) / 180;
+                      const x = 50 + r * Math.sin(azRad);
+                      const y = 50 - r * Math.cos(azRad);
+                      const hue = (idx * 47) % 360;
+                      const color = `hsl(${hue},80%,65%)`;
+
+                      return (
+                        <g key={sat.id}>
+                          <circle cx={x} cy={y} r="1.2" fill={color} />
+                          <text x={x + 1.8} y={y - 1.2} fontSize="2.8" fill={color}>{sat.name}</text>
+                        </g>
+                      );
+                    });
+                })()}
               </svg>
             </div>
           )}
