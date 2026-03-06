@@ -21,6 +21,8 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   groundStations,
   trackedSatelliteId,
   setTrackedSatelliteId,
+  trackedGroundStationId,
+  setTrackedGroundStationId,
   hiddenSatellites,
   setHiddenSatellites,
   hiddenGroundStations,
@@ -154,7 +156,8 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                     return (
                       <div 
                         key={gs.id} 
-                        className={styles.satelliteItem}
+                        className={cx(styles.satelliteItem, trackedGroundStationId === gs.id && 'tracked')}
+                        onClick={() => setTrackedGroundStationId(gs.id)}
                       >
                         <button
                           className={styles.visibilityToggle}

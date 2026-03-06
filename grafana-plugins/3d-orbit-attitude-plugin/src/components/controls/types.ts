@@ -83,6 +83,8 @@ export interface SidebarControlsProps {
   // Visibility & tracking
   trackedSatelliteId: string | null;
   setTrackedSatelliteId: (id: string | null) => void;
+  trackedGroundStationId: string | null;
+  setTrackedGroundStationId: (id: string | null) => void;
   hiddenSatellites: Set<string>;
   setHiddenSatellites: (value: Set<string>) => void;
   hiddenGroundStations: Set<string>;
