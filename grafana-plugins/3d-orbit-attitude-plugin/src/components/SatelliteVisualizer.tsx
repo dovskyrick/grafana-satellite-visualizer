@@ -1463,6 +1463,28 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             </div>
             )}
           </div>
+
+          {/* Ground Station POV — black overlay covering the 3D scene only (inside mainContent, sidebar unaffected) */}
+          {/* Cesium keeps rendering in the background so satellite positions remain accessible */}
+          {selectedMode === 'groundstation' && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: '#000',
+                zIndex: 9,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgba(255,255,255,0.25)',
+                fontSize: 13,
+                letterSpacing: 2,
+                pointerEvents: 'none',
+              }}
+            >
+              GROUND STATION POV — SKY CHART COMING SOON
+            </div>
+          )}
         </div>
 
         {/* Sidebar Controls */}
@@ -1713,28 +1735,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           </div>
         );
       })()}
-
-      {/* Ground Station POV — black overlay covering the 3D scene */}
-      {/* Cesium keeps rendering in the background so satellite positions remain accessible */}
-      {selectedMode === 'groundstation' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: '#000',
-            zIndex: 9,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'rgba(255,255,255,0.25)',
-            fontSize: 13,
-            letterSpacing: 2,
-            pointerEvents: 'none',
-          }}
-        >
-          GROUND STATION POV — SKY CHART COMING SOON
-        </div>
-      )}
 
       {/* Visibility / Line-of-Sight warning modal */}
       {showLoSWarningModal && (
