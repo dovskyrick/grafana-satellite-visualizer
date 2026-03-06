@@ -63,6 +63,12 @@ Perfect for satellite operations teams, aerospace researchers, and mission contr
 - Settings changes don't reset animation timeline
 - Persistent camera position across panel updates
 
+### 🔗 Cross-Panel Hover Sync
+- Hover over any time series panel to scrub the 3D scene to that exact timestamp
+- Satellite position, attitude, and sensor cones all update in real time as you move the cursor
+- Works with Grafana's native **Shared Crosshair** feature — no extra plugins needed
+- Controlled via the **Subscribe to data hover event** toggle in panel options (on by default)
+
 ---
 
 ## 📋 Prerequisites
@@ -156,6 +162,7 @@ npm install
 npm run generate          # 3 satellites, 10-30 points each
 npm run generate:many     # 14 satellites, 20 points each
 npm run generate:single   # 1 satellite
+npm run generate:9h       # 3 satellites covering the past 9 hours (for hover sync testing)
 ```
 
 Generated files appear in `satellite-data-generator/output/`. Then follow **Option A** to load them.
@@ -327,6 +334,20 @@ Sensors are defined in `meta.custom.sensors`:
 - **Scrub**: Drag the timeline slider to navigate through time
 - **Play/Pause**: Use animation controls
 - **Settings Persistence**: Changing panel settings (colors, toggles) does **NOT** reset the timeline
+
+### Cross-Panel Hover Sync
+
+Hover over a time series panel to instantly seek the 3D visualization to that point in time — useful for correlating telemetry anomalies with orbital position, attitude, or sensor footprint.
+
+**One-time setup (per dashboard):**
+
+1. Go to **Dashboard settings** → **Graph tooltip**
+2. Select **Shared crosshair** (or **Shared Tooltip**)
+3. Make sure **Subscribe to data hover event** is enabled in the 3D panel's options (it is by default)
+
+That's all. Moving your cursor over any time series on the dashboard will now drive the 3D scene.
+
+> **Tip**: Use `npm run generate:9h` in `satellite-data-generator/` to produce test data aligned to the current clock, then set the Grafana time picker to *Last 9 hours*. This gives you a full time series to hover over with matching orbital positions.
 
 ---
 
