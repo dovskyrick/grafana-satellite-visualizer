@@ -91,6 +91,12 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 interface Props extends PanelProps<SimpleOptions> {}
 
+// ─── Ground Station POV camera settings ──────────────────────────────────────
+// Tweak GS_POV_FOV_DEG to change the field of view when in Ground Station mode.
+// 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
+const GS_POV_FOV_DEG = 179;
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange, data, timeRange, width, height, eventBus }) => {
   Ion.defaultAccessToken = options.accessToken;
 
@@ -549,12 +555,20 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // Auto-track satellite and adjust camera based on mode
   useEffect(() => {
     if (selectedMode === 'satellite' || selectedMode === 'celestial') {
+      // Reset FOV to Cesium default when leaving Ground Station POV
+      const viewer = viewerRef.current?.cesiumElement;
+      if (viewer) { viewer.camera.frustum.fov = (60 * Math.PI) / 180; }
+
       // Enable tracking for Satellite Focus and Celestial Map modes
       if (!isTracked) {
         setIsTracked(true);
         console.log(`🎯 Satellite tracking enabled (${selectedMode === 'satellite' ? 'Satellite Focus' : 'Celestial Map'} mode)`);
       }
     } else if (selectedMode === 'earth') {
+      // Reset FOV to Cesium default when leaving Ground Station POV
+      const viewer = viewerRef.current?.cesiumElement;
+      if (viewer) { viewer.camera.frustum.fov = (60 * Math.PI) / 180; }
+
       // Earth Focus mode: smooth transition to nadir view then enable free camera
       if (isTracked && trackedSatelliteId) {
         const earthRadius = 6378137; // meters
@@ -599,6 +613,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         Cartesian3.cross(Cartesian3.UNIT_Z, zenith, new Cartesian3()), new Cartesian3()
       );
 
+      // Widen FOV for immersive sky view
+      viewer.camera.frustum.fov = (GS_POV_FOV_DEG * Math.PI) / 180;
+
       viewer.camera.flyTo({
         destination: gsPosition,
         orientation: {
@@ -607,7 +624,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         },
         duration: 1.5,
       });
-      console.log(`📡 Ground Station POV: ${gs.name} (alt ${gs.altitude}m)`);
+      console.log(`📡 Ground Station POV: ${gs.name} (alt ${gs.altitude}m, FOV ${GS_POV_FOV_DEG}°)`);
     }
   }, [selectedMode, isTracked, trackedSatelliteId, trackedGroundStationId, groundStations, flyToSatelliteNadirView, viewerRef]);
 
@@ -1690,6 +1707,28 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           </div>
         );
       })()}
+
+      {/* Ground Station POV — black overlay covering the 3D scene */}
+      {/* Cesium keeps rendering in the background so satellite positions remain accessible */}
+      {selectedMode === 'groundstation' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: '#000',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'rgba(255,255,255,0.25)',
+            fontSize: 13,
+            letterSpacing: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          GROUND STATION POV — SKY CHART COMING SOON
+        </div>
+      )}
 
       {/* Visibility / Line-of-Sight warning modal */}
       {showLoSWarningModal && (
