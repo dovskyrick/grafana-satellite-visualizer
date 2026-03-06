@@ -1556,16 +1556,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 <text x="51.5" y="37.8" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">30°</text>
                 <text x="51.5" y="24.5" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">60°</text>
 
-                {/* TEST: fixed red dot at 45° az, 45° el */}
-                <circle cx={50 + 40 * (90-45)/90 * Math.sin(Math.PI/4)} cy={50 - 40 * (90-45)/90 * Math.cos(Math.PI/4)} r="1.5" fill="red" />
-
-                {/* TEST: blue dot that moves bottom→top over a 60s cycle driven by live clock */}
-                {gsPovClockTime && (() => {
-                  const t = (gsPovClockTime.secondsOfDay % 60) / 60; // 0→1 over 60s
-                  const y = 85 - t * 70; // y=85 (bottom) → y=15 (top)
-                  return <circle cx="50" cy={y} r="1.5" fill="cyan" />;
-                })()}
-
                 {/* Satellite dots — only those above the horizon */}
                 {(() => {
                   const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
