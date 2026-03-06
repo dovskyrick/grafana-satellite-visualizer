@@ -403,7 +403,7 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
           <LabelGraphics
             text={`${sensor.name} FOV`}
             font="12px sans-serif"
-            fillColor={Color.fromBytes(sensorColor.r, sensorColor.g, sensorColor.b, 220)}
+            fillColor={Color.WHITE}
             outlineColor={Color.BLACK}
             outlineWidth={2}
             style={LabelStyle.FILL_AND_OUTLINE}
