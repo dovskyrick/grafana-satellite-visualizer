@@ -1335,8 +1335,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             className={options.showCredits ? styles.showCesiumCredits : styles.hideCesiumCredits}
           ></div>
           
-          {/* Compact Legend Panel - Bottom Right */}
-          <div className={`${styles.legendPanel} ${isLegendCollapsed ? 'collapsed' : ''}`}>
+          {/* Compact Legend Panel - Bottom Right — hidden in Ground Station POV */}
+          <div className={`${styles.legendPanel} ${isLegendCollapsed ? 'collapsed' : ''}`} style={selectedMode === 'groundstation' ? { display: 'none' } : {}}>
             <div 
               className={styles.legendHeader}
               onClick={() => setIsLegendCollapsed(!isLegendCollapsed)}
