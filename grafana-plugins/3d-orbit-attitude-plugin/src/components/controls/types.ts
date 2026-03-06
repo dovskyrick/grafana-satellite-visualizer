@@ -13,7 +13,7 @@ import { GroundStation } from '../../types/groundStationTypes';
 /**
  * View mode types
  */
-export type ViewMode = 'satellite' | 'earth' | 'celestial';
+export type ViewMode = 'satellite' | 'earth' | 'celestial' | 'groundstation';
 export type SatelliteCameraView = 'nadir' | 'cross-track' | 'along-track' | 'fixed';
 export type CelestialCameraView = 'sun' | 'lvlh-orbit' | 'star' | 'groundstation';
 export type EarthCameraView = 'icrf' | 'itrf' | 'gcrf' | 'teme';

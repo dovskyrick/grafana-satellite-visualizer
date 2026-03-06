@@ -115,7 +115,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState<boolean>(false);
   const [isCameraDropdownOpen, setIsCameraDropdownOpen] = useState<boolean>(false);
   const [isAxesDropdownOpen, setIsAxesDropdownOpen] = useState<boolean>(false);
-  const [selectedMode, setSelectedMode] = useState<'satellite' | 'earth' | 'celestial'>('satellite');
+  const [selectedMode, setSelectedMode] = useState<'satellite' | 'earth' | 'celestial' | 'groundstation'>('satellite');
   
   // Camera view states - different per mode
   const [satelliteCameraView, setSatelliteCameraView] = useState<'nadir' | 'cross-track' | 'along-track' | 'fixed'>('nadir');

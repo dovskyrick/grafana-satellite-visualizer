@@ -91,6 +91,17 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
               <span className={styles.dropdownItemLabel}>⭐ Celestial Map</span>
               <span className={styles.dropdownItemDescription}>RA/Dec reference frame</span>
             </div>
+            <div
+              className={`${styles.dropdownItem} ${selectedMode === 'groundstation' ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedMode('groundstation');
+                setIsModeDropdownOpen(false);
+                // TODO: Implement ground station POV logic
+              }}
+            >
+              <span className={styles.dropdownItemLabel}>📡 Ground Station POV</span>
+              <span className={styles.dropdownItemDescription}>Sky view from selected ground station</span>
+            </div>
           </div>
         )}
       </div>
@@ -99,19 +110,23 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'earth'}
+          disabled={selectedMode === 'earth' || selectedMode === 'groundstation'}
           onClick={() => {
-            if (selectedMode === 'earth') return;
+            if (selectedMode === 'earth' || selectedMode === 'groundstation') return;
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
           }}
-          title={selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' : 'Camera direction'}
+          title={
+            selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' :
+            selectedMode === 'groundstation' ? 'Camera direction — free look in Ground Station POV' :
+            'Camera direction'
+          }
         >
           <Video size={16} />
           <ChevronDown size={16} />
         </button>
         
-        {isCameraDropdownOpen && selectedMode !== 'earth' && (
+        {isCameraDropdownOpen && selectedMode !== 'earth' && selectedMode !== 'groundstation' && (
           <div className={styles.dropdownMenu}>
             {/* Satellite Focus Mode - Satellite-centric camera views */}
             {selectedMode === 'satellite' && (
