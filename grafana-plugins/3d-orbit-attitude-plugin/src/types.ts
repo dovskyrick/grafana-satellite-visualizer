@@ -30,10 +30,6 @@ export interface SimpleOptions {
   uncertaintyOpacityMode: UncertaintyOpacityMode;
   uncertaintyColor: string;
 
-  showBodyAxes: boolean;
-  xAxisColor: string;
-  yAxisColor: string;
-  zAxisColor: string;
   
   showRADecGrid: boolean;
   raSpacing: number;

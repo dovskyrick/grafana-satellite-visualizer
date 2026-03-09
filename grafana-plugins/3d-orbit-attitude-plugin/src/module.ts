@@ -211,38 +211,6 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
     })
 
     // ============================================================
-    // 🎯 BODY AXES (satellite reference frame)
-    // ============================================================
-    .addBooleanSwitch({
-      path: 'showBodyAxes',
-      name: '🎯 Show Body Axes',
-      description: 'Display the satellite body-fixed coordinate frame (X, Y, Z axes showing orientation).',
-      defaultValue: true,
-      showIf: (config: any) => config.showAttitudeVisualization,
-    })
-    .addColorPicker({
-      path: 'xAxisColor',
-      name: '🎯 X-Axis Color',
-      description: 'Color for the X-axis (typically red).',
-      defaultValue: '#FF0000',
-      showIf: (config: any) => config.showAttitudeVisualization && config.showBodyAxes,
-    })
-    .addColorPicker({
-      path: 'yAxisColor',
-      name: '🎯 Y-Axis Color',
-      description: 'Color for the Y-axis (typically green).',
-      defaultValue: '#00FF00',
-      showIf: (config: any) => config.showAttitudeVisualization && config.showBodyAxes,
-    })
-    .addColorPicker({
-      path: 'zAxisColor',
-      name: '🎯 Z-Axis Color',
-      description: 'Color for the Z-axis (typically blue).',
-      defaultValue: '#0000FF',
-      showIf: (config: any) => config.showAttitudeVisualization && config.showBodyAxes,
-    })
-
-    // ============================================================
     // 🌌 CELESTIAL REFERENCE GRID (custom features)
     // ============================================================
     .addBooleanSwitch({
