@@ -1572,7 +1572,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       const duration = JulianDate.secondsDifference(interval.stop, interval.start);
                       const numSteps = Math.ceil(duration / STEP_SECONDS);
                       const hue = (idx * 47) % 360;
-                      const trackDots: JSX.Element[] = [];
+                      const trackDots: React.JSX.Element[] = [];
 
                       // Build SVG path: M to start each above-horizon segment, L to continue
                       let pathD = '';

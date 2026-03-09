@@ -15,6 +15,8 @@ export interface SimpleOptions {
   trajectoryWidth: number;
   trajectoryColor: string;
   trajectoryDashLength: number;
+  trajectoryLeadTime: number;
+  trajectoryTrailTime: number;
 
   showAttitudeVisualization: boolean;
 

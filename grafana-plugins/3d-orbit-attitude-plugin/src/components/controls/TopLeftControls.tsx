@@ -112,7 +112,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           className={styles.dropdownButton}
           disabled={selectedMode === 'earth' || selectedMode === 'groundstation'}
           onClick={() => {
-            if (selectedMode === 'earth' || selectedMode === 'groundstation') return;
+            if (selectedMode === 'earth' || selectedMode === 'groundstation') { return; }
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
           }}

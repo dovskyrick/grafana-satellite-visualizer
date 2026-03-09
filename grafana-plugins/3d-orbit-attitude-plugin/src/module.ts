@@ -111,6 +111,22 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
       defaultValue: 16.0,
       showIf: (config) => config.trajectoryShow,
     })
+    .addNumberInput({
+      path: 'trajectoryLeadTime',
+      name: 'Trajectory lead time (s)',
+      description: 'Seconds of orbit to draw ahead of current time. Default 2700 s ≈ half a LEO orbit.',
+      defaultValue: 2700,
+      settings: { min: 0 },
+      showIf: (config) => config.trajectoryShow,
+    })
+    .addNumberInput({
+      path: 'trajectoryTrailTime',
+      name: 'Trajectory trail time (s)',
+      description: 'Seconds of orbit to draw behind current time. Default 2700 s ≈ half a LEO orbit.',
+      defaultValue: 2700,
+      settings: { min: 0 },
+      showIf: (config) => config.trajectoryShow,
+    })
 
     // ============================================================
     // 🎯 MASTER ATTITUDE VISUALIZATION TOGGLE

@@ -120,6 +120,8 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
           width={options.trajectoryWidth}
           material={Color.fromCssColorString(options.trajectoryColor)}
           resolution={30}
+          leadTime={options.trajectoryLeadTime}
+          trailTime={options.trajectoryTrailTime}
         />
       )}
     </Entity>
