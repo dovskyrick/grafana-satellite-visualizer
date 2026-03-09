@@ -26,11 +26,13 @@ function generateSatelliteJSON(
   satelliteId: string,
   satelliteName: string,
   trajectoryPoints: TrajectoryPoint[],
-  sensors: SensorDefinition[]
+  sensors: SensorDefinition[],
+  lastObservedTime: number
 ) {
   return {
     satelliteId,
     satelliteName,
+    lastObservedTime,
     meta: {
       custom: {
         sensors,
@@ -162,11 +164,13 @@ function main() {
     const trajectory = generateCircularOrbit(params);
     const sensors = generateSensors(i);
 
+    const lastObservedTime = commonStartTime.getTime() + 30 * 60 * 1000; // midpoint of 1h trajectory
     const satData = generateSatelliteJSON(
       satelliteId,
       satelliteName,
       trajectory,
-      sensors
+      sensors,
+      lastObservedTime
     );
 
     console.log(`  🛰️  ${satelliteName}:`);

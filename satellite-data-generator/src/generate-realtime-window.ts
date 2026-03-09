@@ -41,11 +41,13 @@ function generateSatelliteJSON(
   satelliteId: string,
   satelliteName: string,
   trajectoryPoints: TrajectoryPoint[],
-  sensors: SensorDefinition[]
+  sensors: SensorDefinition[],
+  lastObservedTime: number
 ) {
   return {
     satelliteId,
     satelliteName,
+    lastObservedTime,
     meta: { custom: { sensors } },
     columns: [
       { text: 'Time', type: 'time' },
@@ -118,22 +120,24 @@ function main() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // --- Time window: 9 hours ending NOW ---
+  // --- Time window: 3 hours before NOW to 3 hours after NOW ---
   const now = new Date();
-  const nineHoursMs = 9 * 60 * 60 * 1000;
-  const windowStart = new Date(now.getTime() - nineHoursMs);
-  const windowDurationSeconds = 9 * 60 * 60; // 32400 s
+  const threeHoursMs = 3 * 60 * 60 * 1000;
+  const windowStart = new Date(now.getTime() - threeHoursMs);
+  const windowEnd = new Date(now.getTime() + threeHoursMs);
+  const windowDurationSeconds = 6 * 60 * 60; // 21600 s
 
-  // One point every 5 minutes over 9 hours = 108 points
+  // One point every 5 minutes over 6 hours = 72 points
   const pointIntervalMinutes = 5;
-  const numPoints = Math.floor((windowDurationSeconds / 60) / pointIntervalMinutes) + 1; // 109
+  const numPoints = Math.floor((windowDurationSeconds / 60) / pointIntervalMinutes) + 1; // 73
 
   console.log('🕐 Realtime window generator');
-  console.log(`   Script run at : ${now.toISOString()}`);
-  console.log(`   Window start  : ${windowStart.toISOString()}`);
-  console.log(`   Window end    : ${now.toISOString()}`);
-  console.log(`   Duration      : 9 hours`);
-  console.log(`   Points/sat    : ${numPoints} (~1 per ${pointIntervalMinutes} min)\n`);
+  console.log(`   Script run at      : ${now.toISOString()}`);
+  console.log(`   Window start (−3h) : ${windowStart.toISOString()}`);
+  console.log(`   Last observed (now): ${now.toISOString()}`);
+  console.log(`   Window end   (+3h) : ${windowEnd.toISOString()}`);
+  console.log(`   Duration           : 6 hours (3h past + 3h future)`);
+  console.log(`   Points/sat         : ${numPoints} (~1 per ${pointIntervalMinutes} min)\n`);
 
   const satelliteConfigs = [
     {
@@ -170,9 +174,9 @@ function main() {
       altitude: config.altitude,
       inclination: config.inclination,
       longitudeOfAN: config.longitudeOfAN,
-      startTime: windowStart,        // ← 9 hours ago
+      startTime: windowStart,        // ← 3 hours ago
       numPoints,
-      duration: windowDurationSeconds, // ← 9 hours
+      duration: windowDurationSeconds, // ← 6 hours total
       startAnomaly: config.startAnomaly,
     };
 
@@ -181,7 +185,7 @@ function main() {
       : generateCircularOrbit(params);
 
     const sensors = generateSensors(idx);
-    const satData = generateSatelliteJSON(config.id, config.name, trajectory, sensors);
+    const satData = generateSatelliteJSON(config.id, config.name, trajectory, sensors, now.getTime());
 
     const first = new Date(trajectory[0].time).toISOString();
     const last = new Date(trajectory[trajectory.length - 1].time).toISOString();
@@ -217,8 +221,8 @@ function main() {
   console.log(`✅ Generated : ${outputPath}`);
   console.log(`   Satellites : ${satellitesData.length}`);
   console.log(`   Gnd stn.   : ${groundStations.length}`);
-  console.log('\n💡 In Grafana, set the time picker to "Last 9 hours" to see all data.');
-  console.log('   The last data point aligns to the moment this script was run.\n');
+  console.log('\n💡 In Grafana, set the time picker to "Last 6 hours" to see all data.');
+  console.log('   Solid line = past 3h (observed). Dashed line = future 3h (inferred).\n');
   console.log('✨ Done!');
 }
 

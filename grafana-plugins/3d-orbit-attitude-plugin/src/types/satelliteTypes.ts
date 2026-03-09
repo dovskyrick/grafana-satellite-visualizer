@@ -2,7 +2,7 @@
  * Type definitions for parsed satellite data.
  */
 
-import { SampledPositionProperty, SampledProperty, TimeIntervalCollection, IonResource } from 'cesium';
+import { SampledPositionProperty, SampledProperty, TimeIntervalCollection, IonResource, Cartesian3 } from 'cesium';
 import { SensorDefinition } from './sensorTypes';
 import { CovarianceEpoch } from '../parsers/covarianceParser';
 
@@ -18,5 +18,7 @@ export interface ParsedSatellite {
   sensors: SensorDefinition[];          // Attached sensors
   resource?: IonResource | string;      // 3D model resource (optional, can use default)
   covariance?: CovarianceEpoch[];       // Position uncertainty (optional)
+  lastObservedTime?: number;            // Unix ms — split point between solid (past) and dashed (future) trajectory
+  trajectoryPositions: Array<{ timeMs: number; position: Cartesian3 }>;
 }
 

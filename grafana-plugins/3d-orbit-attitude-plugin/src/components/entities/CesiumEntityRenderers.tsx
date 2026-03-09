@@ -84,47 +84,97 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
   isTracked,
   hasEllipsoidVisible,
 }) => {
-  // When ellipsoid is visible, don't scale up the satellite model to avoid size confusion
   const effectiveMinimumPixelSize = hasEllipsoidVisible ? 1 : options.modelMinimumPixelSize;
-  
+  const trajectoryColor = Color.fromCssColorString(options.trajectoryColor);
+
+  // Split trajectory into past (solid) and future (dashed) when lastObservedTime is available
+  const hasObservationSplit =
+    options.trajectoryShow &&
+    satellite.lastObservedTime !== undefined &&
+    satellite.trajectoryPositions.length > 0;
+
+  const pastPositions = hasObservationSplit
+    ? satellite.trajectoryPositions
+        .filter(p => p.timeMs <= satellite.lastObservedTime!)
+        .map(p => p.position)
+    : [];
+
+  const futurePositions = hasObservationSplit
+    ? satellite.trajectoryPositions
+        .filter(p => p.timeMs >= satellite.lastObservedTime!)
+        .map(p => p.position)
+    : [];
+
   return (
-    <Entity
-      id={satellite.id}
-      name={satellite.name}
-      availability={satellite.availability}
-      position={satellite.position}
-      orientation={satellite.orientation}
-      tracked={isTracked}
-    >
-      {/* Point representation */}
-      {options.assetMode === AssetMode.Point && (
-        <PointGraphics 
-          pixelSize={options.pointSize} 
-          color={Color.fromCssColorString(options.pointColor)} 
-        />
+    <>
+      <Entity
+        id={satellite.id}
+        name={satellite.name}
+        availability={satellite.availability}
+        position={satellite.position}
+        orientation={satellite.orientation}
+        tracked={isTracked}
+      >
+        {/* Point representation */}
+        {options.assetMode === AssetMode.Point && (
+          <PointGraphics
+            pixelSize={options.pointSize}
+            color={Color.fromCssColorString(options.pointColor)}
+          />
+        )}
+
+        {/* 3D Model representation */}
+        {options.assetMode === AssetMode.Model && satelliteResource && (
+          <ModelGraphics
+            uri={satelliteResource}
+            scale={options.modelScale}
+            minimumPixelSize={effectiveMinimumPixelSize}
+            maximumScale={options.modelMaximumScale}
+          />
+        )}
+
+        {/* Fallback trajectory path (clock-relative lead/trail) when no lastObservedTime */}
+        {options.trajectoryShow && !hasObservationSplit && (
+          <PathGraphics
+            width={options.trajectoryWidth}
+            material={trajectoryColor}
+            resolution={30}
+            leadTime={options.trajectoryLeadTime}
+            trailTime={options.trajectoryTrailTime}
+          />
+        )}
+      </Entity>
+
+      {/* Past trajectory — solid line (observed/known data) */}
+      {hasObservationSplit && pastPositions.length >= 2 && (
+        <Entity
+          id={`${satellite.id}-trajectory-past`}
+          availability={satellite.availability}
+        >
+          <PolylineGraphics
+            positions={pastPositions}
+            width={options.trajectoryWidth}
+            material={trajectoryColor}
+            arcType={ArcType.NONE}
+          />
+        </Entity>
       )}
-      
-      {/* 3D Model representation */}
-      {options.assetMode === AssetMode.Model && satelliteResource && (
-        <ModelGraphics
-          uri={satelliteResource}
-          scale={options.modelScale}
-          minimumPixelSize={effectiveMinimumPixelSize}
-          maximumScale={options.modelMaximumScale}
-        />
+
+      {/* Future trajectory — faded line (inferred/propagated data) */}
+      {hasObservationSplit && futurePositions.length >= 2 && (
+        <Entity
+          id={`${satellite.id}-trajectory-future`}
+          availability={satellite.availability}
+        >
+          <PolylineGraphics
+            positions={futurePositions}
+            width={options.trajectoryWidth}
+            material={trajectoryColor.withAlpha(0.35)}
+            arcType={ArcType.NONE}
+          />
+        </Entity>
       )}
-      
-      {/* Trajectory path */}
-      {options.trajectoryShow && (
-        <PathGraphics
-          width={options.trajectoryWidth}
-          material={Color.fromCssColorString(options.trajectoryColor)}
-          resolution={30}
-          leadTime={options.trajectoryLeadTime}
-          trailTime={options.trajectoryTrailTime}
-        />
-      )}
-    </Entity>
+    </>
   );
 };
 

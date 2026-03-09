@@ -42,11 +42,13 @@ function generateSatelliteJSON(
   satelliteId: string,
   satelliteName: string,
   trajectoryPoints: TrajectoryPoint[],
-  sensors: SensorDefinition[]
+  sensors: SensorDefinition[],
+  lastObservedTime: number
 ) {
   return {
     satelliteId,
     satelliteName,
+    lastObservedTime,
     meta: {
       custom: {
         sensors,
@@ -198,11 +200,13 @@ function main() {
     const trajectory = generateCircularOrbit(params);
     const sensors = generateSensors(0);
     
+    const lastObservedTime = trajectory[Math.floor(trajectory.length / 2)].time;
     const satelliteData = generateSatelliteJSON(
       'sat-1',
       'Starlink-4021',
       trajectory,
-      sensors
+      sensors,
+      lastObservedTime
     );
 
     const outputPath = path.join(outputDir, 'single-satellite.json');
@@ -267,11 +271,13 @@ function main() {
       
       const sensors = generateSensors(idx);
       
+      const lastObservedTime = trajectory[Math.floor(trajectory.length / 2)].time;
       const satData = generateSatelliteJSON(
         config.id,
         config.name,
         trajectory,
-        sensors
+        sensors,
+        lastObservedTime
       );
 
       console.log(`  🛰️  ${config.name}:`);

@@ -65,6 +65,8 @@ export function parseSatellites(
         continue;
       }
 
+      const lastObservedTime = dataFrame.meta?.custom?.lastObservedTime as number | undefined;
+
       const timeData = timeField.values;
       const longitudeData = longitudeField.values;
       const latitudeData = latitudeField.values;
@@ -96,6 +98,7 @@ export function parseSatellites(
 
       let startTime: JulianDate | null = null;
       let stopTime: JulianDate | null = null;
+      const trajectoryPositions: Array<{ timeMs: number; position: Cartesian3 }> = [];
 
       for (let i = 0; i < numPoints; i++) {
         const time = JulianDate.fromDate(new Date(timeData[i]));
@@ -134,6 +137,7 @@ export function parseSatellites(
         }
 
         position.addSample(time, positionCartesian);
+        trajectoryPositions.push({ timeMs: timeData[i], position: positionCartesian });
 
         // Add orientation sample if quaternion data exists
         if (qxData && qyData && qzData && qsData) {
@@ -175,6 +179,8 @@ export function parseSatellites(
         availability,
         sensors,
         covariance: covariance.length > 0 ? covariance : undefined,
+        lastObservedTime,
+        trajectoryPositions,
       });
 
       console.log(`✅ Satellite ${satelliteName} parsed successfully`);
