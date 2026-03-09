@@ -179,7 +179,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // Per-satellite render settings (for future features like transparent cones)
   const [satelliteRenderSettings, setSatelliteRenderSettings] = useState<Map<string, {
     transparentCones: boolean;
-    showEllipsoid: boolean;
     // Future settings will go here
     setting2: boolean;
     setting3: boolean;
@@ -1118,8 +1117,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           .filter(sat => !hiddenSatellites.has(sat.id))
           .map((satellite) => {
             const isThisSatelliteTracked = isTracked && trackedSatelliteId === satellite.id;
-            const hasEllipsoidVisible = options.showUncertaintyEllipsoids && 
-                                       satelliteRenderSettings.get(satellite.id)?.showEllipsoid === true;
+            const hasEllipsoidVisible = options.showUncertaintyEllipsoids;
             return (
               <SatelliteEntityRenderer
                 key={satellite.id}
@@ -1314,10 +1312,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         }
 
         {/* Uncertainty Ellipsoids - Per-satellite - Hidden in Celestial Map mode */}
-        {/* Only render if global toggle is ON and per-satellite toggle is explicitly ON */}
+        {/* Only render if global toggle is ON */}
         {selectedMode !== 'celestial' && options.showAttitudeVisualization && options.showUncertaintyEllipsoids && satellites
           .filter(sat => !hiddenSatellites.has(sat.id))
-          .filter(sat => satelliteRenderSettings.get(sat.id)?.showEllipsoid === true)
           .map((satellite) => {
             // Only render if satellite has covariance data
             if (!satellite.covariance || satellite.covariance.length === 0) {
@@ -1764,7 +1761,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                           const newSettings = new Map(satelliteRenderSettings);
                           const current = newSettings.get(settingsModalSatelliteId!) || {
                             transparentCones: false,
-                            showEllipsoid: false,
                             setting2: false,
                             setting3: false,
                             setting4: false,
@@ -1789,41 +1785,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   </div>
                 </div>
 
-                {/* Setting 2: Show Uncertainty Ellipsoid */}
-                <div className={styles.settingRow}>
-                  <div>
-                    <label className={styles.settingLabel}>
-                      <input
-                        type="checkbox"
-                        checked={satelliteRenderSettings.get(settingsModalSatelliteId!)?.showEllipsoid || false}
-                        onChange={(e) => {
-                          const newSettings = new Map(satelliteRenderSettings);
-                          const current = newSettings.get(settingsModalSatelliteId!) || {
-                            transparentCones: false,
-                            showEllipsoid: false,
-                            setting2: false,
-                            setting3: false,
-                            setting4: false,
-                            setting5: false,
-                            setting6: false,
-                            setting7: false,
-                            setting8: false,
-                            setting9: false,
-                          };
-                          newSettings.set(settingsModalSatelliteId!, {
-                            ...current,
-                            showEllipsoid: e.target.checked
-                          });
-                          setSatelliteRenderSettings(newSettings);
-                        }}
-                      />
-                      <span>Show Uncertainty Ellipsoid</span>
-                    </label>
-                    <div className={styles.settingDescription}>
-                      Display 3D confidence ellipsoid representing position uncertainty
-                    </div>
-                  </div>
-                </div>
                 </div> {/* End Render Settings Group */}
               </div>
             </div>
