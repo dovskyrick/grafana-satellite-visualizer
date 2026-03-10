@@ -28,7 +28,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, PolylineDashMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms, SampledPositionProperty, ReferenceFrame, LagrangePolynomialApproximation } from 'cesium';
+import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, PolylineDashMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms, SampledPositionProperty, ReferenceFrame, LagrangePolynomialApproximation, TimeInterval, TimeIntervalCollection } from 'cesium';
 import { Entity, PointGraphics, LabelGraphics, PolylineGraphics, PolygonGraphics, ModelGraphics, PathGraphics, EllipsoidGraphics } from 'resium';
 import { ParsedSatellite } from 'types/satelliteTypes';
 import { SensorDefinition } from 'types/sensorTypes';
@@ -87,10 +87,27 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
   const effectiveMinimumPixelSize = hasEllipsoidVisible ? 1 : options.modelMinimumPixelSize;
   const trajectoryColor = Color.fromCssColorString(options.trajectoryColor);
 
-  // Build a SampledPositionProperty containing only predicted positions (>= lastObservedTime).
-  // Attached to a separate entity so the dashed PathGraphics starts exactly at lastObservedTime
-  // and uses the same lead/trail window as the solid line — no per-frame callback needed.
-  const predictedPosition = useMemo(() => {
+  // Two dashed-line entities share one material definition — keep it stable.
+  const dashedMaterial = useMemo(() => new PolylineDashMaterialProperty({
+    color: Color.fromCssColorString('#b06aff'),
+    dashLength: 24,
+  }), []);
+
+  // Build the predicted-segment data needed for the two dashed path entities.
+  //
+  // Entity B  (preview — clock BEFORE lastObservedTime):
+  //   Uses a subset SampledPositionProperty (predicted samples only).
+  //   The interpolation end-condition mismatch produces a small offset at the
+  //   boundary, but it is invisible because the viewer hasn't reached it yet.
+  //   availability = [dataStart, lastObservedTime]
+  //
+  // Entity C  (exact — clock AT OR AFTER lastObservedTime):
+  //   Reuses satellite.position (the canonical SampledPositionProperty that
+  //   also drives the solid line).  Both entities now evaluate the same Lagrange
+  //   polynomial over the same full sample set, so they are numerically identical
+  //   and the dashed line sits flush on top of the solid line with zero offset.
+  //   availability = [lastObservedTime, dataStop]
+  const predictedSegments = useMemo(() => {
     if (
       !options.trajectoryShow ||
       satellite.lastObservedTime === undefined ||
@@ -98,6 +115,10 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
     ) {
       return undefined;
     }
+
+    const lastObsJulian = JulianDate.fromDate(new Date(satellite.lastObservedTime));
+
+    // Subset property for the pre-boundary preview.
     const sampled = new SampledPositionProperty(ReferenceFrame.FIXED);
     sampled.setInterpolationOptions({
       interpolationDegree: 5,
@@ -108,8 +129,16 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
         sampled.addSample(JulianDate.fromDate(new Date(p.timeMs)), p.position);
       }
     }
-    return sampled;
-  }, [satellite.lastObservedTime, satellite.trajectoryPositions, options.trajectoryShow]);
+
+    const availabilityBefore = new TimeIntervalCollection([
+      new TimeInterval({ start: satellite.availability.start, stop: lastObsJulian }),
+    ]);
+    const availabilityAfter = new TimeIntervalCollection([
+      new TimeInterval({ start: lastObsJulian, stop: satellite.availability.stop }),
+    ]);
+
+    return { sampled, availabilityBefore, availabilityAfter };
+  }, [satellite.lastObservedTime, satellite.trajectoryPositions, satellite.availability, options.trajectoryShow]);
 
   return (
     <>
@@ -151,25 +180,43 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
         )}
       </Entity>
 
-      {/* Dashed predicted overlay — starts at lastObservedTime, same lead/trail window.
-          Thicker (4×) purple dashed line overlays the solid line for the predicted portion. */}
-      {options.trajectoryShow && predictedPosition && (
-        <Entity
-          id={`${satellite.id}-trajectory-predicted`}
-          availability={satellite.availability}
-          position={predictedPosition}
-        >
-          <PathGraphics
-            width={options.trajectoryWidth * 4}
-            material={new PolylineDashMaterialProperty({
-              color: Color.fromCssColorString('#b06aff'),
-              dashLength: 24,
-            })}
-            resolution={30}
-            leadTime={options.trajectoryLeadTime}
-            trailTime={options.trajectoryTrailTime}
-          />
-        </Entity>
+      {/* Dashed predicted overlay — two entities with complementary availability windows.
+          Entity B: subset SampledPositionProperty, visible BEFORE lastObservedTime.
+                    The small interpolation offset is invisible from this vantage point.
+          Entity C: canonical satellite.position (same as solid line), visible AT/AFTER
+                    lastObservedTime. Numerically identical to the solid line — zero offset. */}
+      {options.trajectoryShow && predictedSegments && (
+        <>
+          {/* Entity B — preview phase (clock before boundary) */}
+          <Entity
+            id={`${satellite.id}-trajectory-predicted-before`}
+            availability={predictedSegments.availabilityBefore}
+            position={predictedSegments.sampled}
+          >
+            <PathGraphics
+              width={options.trajectoryWidth * 4}
+              material={dashedMaterial}
+              resolution={30}
+              leadTime={options.trajectoryLeadTime}
+              trailTime={options.trajectoryTrailTime}
+            />
+          </Entity>
+
+          {/* Entity C — exact phase (clock at or after boundary) */}
+          <Entity
+            id={`${satellite.id}-trajectory-predicted-after`}
+            availability={predictedSegments.availabilityAfter}
+            position={satellite.position}
+          >
+            <PathGraphics
+              width={options.trajectoryWidth * 4}
+              material={dashedMaterial}
+              resolution={30}
+              leadTime={options.trajectoryLeadTime}
+              trailTime={options.trajectoryTrailTime}
+            />
+          </Entity>
+        </>
       )}
     </>
   );
