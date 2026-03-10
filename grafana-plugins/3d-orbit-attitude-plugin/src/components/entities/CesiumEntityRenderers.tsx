@@ -27,8 +27,8 @@
  * See: grafana-plugins/plans-broad-scope/25-12-december/31-refactoring-complete-summary.md
  */
 
-import React from 'react';
-import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms } from 'cesium';
+import React, { useMemo } from 'react';
+import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, PolylineDashMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms, SampledPositionProperty, ReferenceFrame } from 'cesium';
 import { Entity, PointGraphics, LabelGraphics, PolylineGraphics, PolygonGraphics, ModelGraphics, PathGraphics, EllipsoidGraphics } from 'resium';
 import { ParsedSatellite } from 'types/satelliteTypes';
 import { SensorDefinition } from 'types/sensorTypes';
@@ -87,23 +87,25 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
   const effectiveMinimumPixelSize = hasEllipsoidVisible ? 1 : options.modelMinimumPixelSize;
   const trajectoryColor = Color.fromCssColorString(options.trajectoryColor);
 
-  // Split trajectory into past (solid) and future (dashed) when lastObservedTime is available
-  const hasObservationSplit =
-    options.trajectoryShow &&
-    satellite.lastObservedTime !== undefined &&
-    satellite.trajectoryPositions.length > 0;
-
-  const pastPositions = hasObservationSplit
-    ? satellite.trajectoryPositions
-        .filter(p => p.timeMs <= satellite.lastObservedTime!)
-        .map(p => p.position)
-    : [];
-
-  const futurePositions = hasObservationSplit
-    ? satellite.trajectoryPositions
-        .filter(p => p.timeMs >= satellite.lastObservedTime!)
-        .map(p => p.position)
-    : [];
+  // Build a SampledPositionProperty containing only predicted positions (>= lastObservedTime).
+  // Attached to a separate entity so the dashed PathGraphics starts exactly at lastObservedTime
+  // and uses the same lead/trail window as the solid line — no per-frame callback needed.
+  const predictedPosition = useMemo(() => {
+    if (
+      !options.trajectoryShow ||
+      satellite.lastObservedTime === undefined ||
+      satellite.trajectoryPositions.length === 0
+    ) {
+      return undefined;
+    }
+    const sampled = new SampledPositionProperty(ReferenceFrame.FIXED);
+    for (const p of satellite.trajectoryPositions) {
+      if (p.timeMs >= satellite.lastObservedTime) {
+        sampled.addSample(JulianDate.fromDate(new Date(p.timeMs)), p.position);
+      }
+    }
+    return sampled;
+  }, [satellite.lastObservedTime, satellite.trajectoryPositions, options.trajectoryShow]);
 
   return (
     <>
@@ -133,8 +135,8 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
           />
         )}
 
-        {/* Fallback trajectory path (clock-relative lead/trail) when no lastObservedTime */}
-        {options.trajectoryShow && !hasObservationSplit && (
+        {/* Solid trajectory — full extent with clock-relative lead/trail */}
+        {options.trajectoryShow && (
           <PathGraphics
             width={options.trajectoryWidth}
             material={trajectoryColor}
@@ -145,32 +147,23 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
         )}
       </Entity>
 
-      {/* Past trajectory — solid line (observed/known data) */}
-      {hasObservationSplit && pastPositions.length >= 2 && (
+      {/* Dashed predicted overlay — starts at lastObservedTime, same lead/trail window.
+          Thicker (4×) purple dashed line overlays the solid line for the predicted portion. */}
+      {options.trajectoryShow && predictedPosition && (
         <Entity
-          id={`${satellite.id}-trajectory-past`}
+          id={`${satellite.id}-trajectory-predicted`}
           availability={satellite.availability}
+          position={predictedPosition}
         >
-          <PolylineGraphics
-            positions={pastPositions}
-            width={options.trajectoryWidth}
-            material={trajectoryColor}
-            arcType={ArcType.NONE}
-          />
-        </Entity>
-      )}
-
-      {/* Future trajectory — faded line (inferred/propagated data) */}
-      {hasObservationSplit && futurePositions.length >= 2 && (
-        <Entity
-          id={`${satellite.id}-trajectory-future`}
-          availability={satellite.availability}
-        >
-          <PolylineGraphics
-            positions={futurePositions}
-            width={options.trajectoryWidth}
-            material={trajectoryColor.withAlpha(0.35)}
-            arcType={ArcType.NONE}
+          <PathGraphics
+            width={options.trajectoryWidth * 4}
+            material={new PolylineDashMaterialProperty({
+              color: Color.fromCssColorString('#b06aff'),
+              dashLength: 24,
+            })}
+            resolution={30}
+            leadTime={options.trajectoryLeadTime}
+            trailTime={options.trajectoryTrailTime}
           />
         </Entity>
       )}

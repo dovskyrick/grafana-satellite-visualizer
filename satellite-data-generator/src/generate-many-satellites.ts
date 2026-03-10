@@ -30,11 +30,11 @@ function generateSatelliteJSON(
   lastObservedTime: number
 ) {
   return {
-    satelliteId,
-    satelliteName,
-    lastObservedTime,
     meta: {
       custom: {
+        satelliteId,
+        satelliteName,
+        lastObservedTime,
         sensors,
       },
     },

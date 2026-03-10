@@ -45,10 +45,7 @@ function generateSatelliteJSON(
   lastObservedTime: number
 ) {
   return {
-    satelliteId,
-    satelliteName,
-    lastObservedTime,
-    meta: { custom: { sensors } },
+    meta: { custom: { satelliteId, satelliteName, lastObservedTime, sensors } },
     columns: [
       { text: 'Time', type: 'time' },
       { text: 'Longitude', type: 'number' },
