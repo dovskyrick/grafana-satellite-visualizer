@@ -28,7 +28,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, PolylineDashMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms, SampledPositionProperty, ReferenceFrame } from 'cesium';
+import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, PolylineDashMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms, SampledPositionProperty, ReferenceFrame, LagrangePolynomialApproximation } from 'cesium';
 import { Entity, PointGraphics, LabelGraphics, PolylineGraphics, PolygonGraphics, ModelGraphics, PathGraphics, EllipsoidGraphics } from 'resium';
 import { ParsedSatellite } from 'types/satelliteTypes';
 import { SensorDefinition } from 'types/sensorTypes';
@@ -99,6 +99,10 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
       return undefined;
     }
     const sampled = new SampledPositionProperty(ReferenceFrame.FIXED);
+    sampled.setInterpolationOptions({
+      interpolationDegree: 5,
+      interpolationAlgorithm: LagrangePolynomialApproximation,
+    });
     for (const p of satellite.trajectoryPositions) {
       if (p.timeMs >= satellite.lastObservedTime) {
         sampled.addSample(JulianDate.fromDate(new Date(p.timeMs)), p.position);

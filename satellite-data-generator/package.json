@@ -8,7 +8,7 @@
     "generate:single": "ts-node src/generate-trajectories.ts --single",
     "generate:multi": "ts-node src/generate-trajectories.ts --multi",
     "generate:many": "ts-node src/generate-many-satellites.ts",
-    "generate:9h": "ts-node src/generate-realtime-window.ts"
+    "generate:3h3h": "ts-node src/generate-realtime-window.ts"
   },
   "keywords": ["satellite", "orbit", "test-data", "grafana"],
   "author": "",
