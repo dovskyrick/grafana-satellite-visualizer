@@ -215,63 +215,36 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // Body Axes - Almost white, all same brightness (90% opacity)
   const attitudeVectors = React.useMemo(() => {
     return [
-      { 
-        axis: new Cartesian3(1, 0, 0), 
-        color: Color.fromBytes(245, 245, 250, 230), // Almost white
-        name: 'X-axis' 
-      },
-      { 
-        axis: new Cartesian3(0, 1, 0), 
-        color: Color.fromBytes(245, 245, 250, 230), // Almost white
-        name: 'Y-axis' 
-      },
-      { 
-        axis: new Cartesian3(0, 0, 1), 
-        color: Color.fromBytes(245, 245, 250, 230), // Almost white
-        name: 'Z-axis' 
-      },
+      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(245, 245, 250, 230), name: 'Body-X', label: 'X' },
+      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(245, 245, 250, 230), name: 'Body-Y', label: 'Y' },
+      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(245, 245, 250, 230), name: 'Body-Z', label: 'Z' },
     ];
   }, []);
 
-  // LVLH Axes - Medium grey; labels: Radial (R), Along-track (A), Cross-track (C)
+  // LVLH Axes - Medium grey; R = Radial, A = Along-track, C = Cross-track
   const lvlhVectors = React.useMemo(() => {
     return [
-      { 
-        axis: new Cartesian3(1, 0, 0), 
-        color: Color.fromBytes(180, 180, 185, 179), // Medium grey
-        name: 'Cross-track' 
-      },
-      { 
-        axis: new Cartesian3(0, 1, 0), 
-        color: Color.fromBytes(180, 180, 185, 179), // Medium grey
-        name: 'Along-track' 
-      },
-      { 
-        axis: new Cartesian3(0, 0, 1), 
-        color: Color.fromBytes(180, 180, 185, 179), // Medium grey
-        name: 'Radial' 
-      },
+      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(180, 180, 185, 179), name: 'Cross-track', label: 'C' },
+      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(180, 180, 185, 179), name: 'Along-track', label: 'A' },
+      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(180, 180, 185, 179), name: 'Radial',       label: 'R' },
     ];
   }, []);
 
-  // ITRF Axes - Dark grey, all same brightness (60% opacity)
+  // ITRF Axes - Dark grey (60% opacity); X/Y/Z aligned with ECEF frame
   const itrfVectors = React.useMemo(() => {
     return [
-      { 
-        axis: new Cartesian3(1, 0, 0), 
-        color: Color.fromBytes(120, 120, 130, 153), // Dark grey
-        name: 'ITRF-X' 
-      },
-      { 
-        axis: new Cartesian3(0, 1, 0), 
-        color: Color.fromBytes(120, 120, 130, 153), // Dark grey
-        name: 'ITRF-Y' 
-      },
-      { 
-        axis: new Cartesian3(0, 0, 1), 
-        color: Color.fromBytes(120, 120, 130, 153), // Dark grey
-        name: 'ITRF-Z' 
-      },
+      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(120, 120, 130, 153), name: 'ITRF-X', label: 'X' },
+      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(120, 120, 130, 153), name: 'ITRF-Y', label: 'Y' },
+      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(120, 120, 130, 153), name: 'ITRF-Z', label: 'Z' },
+    ];
+  }, []);
+
+  // ICRF Axes - Steel blue (60% opacity); X: vernal equinox, Z: north celestial pole
+  const icrfVectors = React.useMemo(() => {
+    return [
+      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(140, 170, 215, 153), name: 'ICRF-X', label: 'X' },
+      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(140, 170, 215, 153), name: 'ICRF-Y', label: 'Y' },
+      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(140, 170, 215, 153), name: 'ICRF-Z', label: 'Z' },
     ];
   }, []);
 
@@ -357,8 +330,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const computeITRFOrientation = React.useCallback((satellite: ParsedSatellite) => {
     const itrfOrientation = new SampledProperty(Quaternion);
     const times = (satellite.position as any)._property?._times || [];
+    // Use new Quaternion instances (not Quaternion.IDENTITY which is Object.freeze()'d —
+    // Cesium's SampledProperty interpolation writes into the stored objects, causing
+    // silent failures when the frozen constant is reused across all samples).
     for (let i = 0; i < times.length; i++) {
-      itrfOrientation.addSample(times[i], Quaternion.IDENTITY);
+      itrfOrientation.addSample(times[i], new Quaternion(0, 0, 0, 1));
     }
     return itrfOrientation;
   }, []);
@@ -370,6 +346,32 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       orientation: computeITRFOrientation(sat),
     }));
   }, [satellites, computeITRFOrientation]);
+
+  // Compute ICRF orientation (celestial inertial frame → ECEF) at each time step.
+  // Transforms.computeIcrfToFixedMatrix rotates a vector from ICRF to ECEF, so
+  // applying it as the entity orientation maps the ICRF unit axes to their correct
+  // ECEF directions. Returns undefined for times outside EOP data range; those
+  // samples are simply skipped and Cesium interpolates across the gap.
+  const computeICRFOrientation = React.useCallback((satellite: ParsedSatellite) => {
+    const icrfOrientation = new SampledProperty(Quaternion);
+    const times = (satellite.position as any)._property?._times || [];
+    const scratch = new Matrix3();
+    for (let i = 0; i < times.length; i++) {
+      const matrix = Transforms.computeIcrfToFixedMatrix(times[i], scratch);
+      if (matrix) {
+        icrfOrientation.addSample(times[i], Quaternion.fromRotationMatrix(matrix));
+      }
+    }
+    return icrfOrientation;
+  }, []);
+
+  // Create ICRF-oriented satellites
+  const icrfSatellites = React.useMemo(() => {
+    return satellites.map(sat => ({
+      ...sat,
+      orientation: computeICRFOrientation(sat),
+    }));
+  }, [satellites, computeICRFOrientation]);
 
   // Color management helper functions
   // Note: Will be used in Phase 3 (display colors in UI) and Phase 4 (color picker)
@@ -1173,7 +1175,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           })
         }
 
-        {/* ITRF Axes (Earth-fixed reference frame: East/North/Up) */}
+        {/* ITRF Axes (Earth-fixed frame: X → prime meridian, Y → 90°E, Z → North Pole) */}
         {selectedMode !== 'celestial' && options.showAttitudeVisualization && showITRFAxes && itrfSatellites
           .filter(sat => !hiddenSatellites.has(sat.id))
           .map((satellite) => {
@@ -1186,6 +1188,24 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 isTracked={isThisSatelliteTracked}
                 viewerRef={viewerRef}
                 attitudeVectors={itrfVectors}
+              />
+            );
+          })
+        }
+
+        {/* ICRF Axes (celestial inertial frame: X → vernal equinox, Z → north celestial pole) */}
+        {selectedMode !== 'celestial' && options.showAttitudeVisualization && showICRFAxes && icrfSatellites
+          .filter(sat => !hiddenSatellites.has(sat.id))
+          .map((satellite) => {
+            const isThisSatelliteTracked = isTracked && trackedSatelliteId === satellite.id;
+            return (
+              <BodyAxesRenderer
+                key={`${satellite.id}-icrf-axes`}
+                satellite={satellite}
+                options={options}
+                isTracked={isThisSatelliteTracked}
+                viewerRef={viewerRef}
+                attitudeVectors={icrfVectors}
               />
             );
           })
@@ -1421,7 +1441,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   <div className={styles.legendItem}>
                     <div
                       className={styles.legendColorSwatch}
-                      style={{ background: 'rgba(200, 200, 210, 0.7)' }}
+                      style={{ background: 'rgba(140, 170, 215, 0.6)' }}
                       onClick={() => setExpandedLegendItem(expandedLegendItem === 'icrf' ? null : 'icrf')}
                     />
                     <span className={styles.legendItemName}>ICRF Frame</span>
@@ -1429,7 +1449,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 )}
                 {expandedLegendItem === 'icrf' && (
                   <div className={styles.legendColorPicker}>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Not yet implemented</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Color picker here</div>
                   </div>
                 )}
               </div>

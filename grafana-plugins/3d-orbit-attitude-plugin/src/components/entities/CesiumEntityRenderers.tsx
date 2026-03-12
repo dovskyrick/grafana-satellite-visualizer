@@ -585,7 +585,7 @@ export interface BodyAxesProps {
   options: SimpleOptions;
   isTracked: boolean;
   viewerRef: React.RefObject<any>;
-  attitudeVectors: Array<{ axis: Cartesian3; color: Color; name: string }>;
+  attitudeVectors: Array<{ axis: Cartesian3; color: Color; name: string; label?: string }>;
 }
 
 export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
@@ -598,9 +598,7 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
   return (
     <>
       {attitudeVectors.map((vector, index) => {
-        // Extract axis letter (X, Y, or Z) — handles both bare names ('X') and
-        // prefixed names like 'ITRF-X' or 'LVLH-Z'
-        const axisLetter = vector.name.split('-').pop() ?? vector.name.charAt(0);
+        const axisLetter = vector.label ?? vector.name;
         
         return (
           <React.Fragment key={`${satellite.id}-attitude-vector-${index}`}>
