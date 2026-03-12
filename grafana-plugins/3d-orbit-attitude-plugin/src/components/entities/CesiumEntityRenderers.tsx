@@ -598,8 +598,9 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
   return (
     <>
       {attitudeVectors.map((vector, index) => {
-        // Extract axis letter (X, Y, or Z) from name
-        const axisLetter = vector.name.charAt(0);
+        // Extract axis letter (X, Y, or Z) — handles both bare names ('X') and
+        // prefixed names like 'ITRF-X' or 'LVLH-Z'
+        const axisLetter = vector.name.split('-').pop() ?? vector.name.charAt(0);
         
         return (
           <React.Fragment key={`${satellite.id}-attitude-vector-${index}`}>

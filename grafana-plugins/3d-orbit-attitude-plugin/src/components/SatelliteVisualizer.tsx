@@ -347,49 +347,19 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     }));
   }, [satellites, computeLVLHOrientation]);
 
-  // Compute ITRF orientation (Earth-fixed frame) from position
+  // Compute ITRF orientation (Earth-fixed frame)
+  // ITRF is identical to the Cesium/ECEF coordinate system, so no rotation is
+  // needed — identity quaternions let BodyAxesRenderer render the axis vectors
+  // (1,0,0), (0,1,0), (0,0,1) directly in ECEF, which are the ITRF axes:
+  //   X → prime meridian / equator intersection
+  //   Y → 90°E on the equator
+  //   Z → Earth's mean rotation axis (North Pole)
   const computeITRFOrientation = React.useCallback((satellite: ParsedSatellite) => {
     const itrfOrientation = new SampledProperty(Quaternion);
-    
     const times = (satellite.position as any)._property?._times || [];
-    
     for (let i = 0; i < times.length; i++) {
-      const time = times[i];
-      const position = satellite.position.getValue(time);
-      
-      if (!position) {
-        continue;
-      }
-      
-      // ITRF Frame (Earth-fixed):
-      // X-axis: Points East (perpendicular to radial, in equatorial plane direction)
-      // Y-axis: Points North (tangent to meridian)
-      // Z-axis: Points Up (radial, away from Earth center)
-      
-      const zAxis = Cartesian3.normalize(position, new Cartesian3()); // Radial (up)
-      const north = new Cartesian3(0, 0, 1); // Earth's north pole direction
-      const east = Cartesian3.normalize(Cartesian3.cross(north, zAxis, new Cartesian3()), new Cartesian3());
-      
-      // If near poles, east vector might be zero, use alternative
-      if (Cartesian3.magnitude(east) < 0.1) {
-        const fallback = new Cartesian3(1, 0, 0);
-        Cartesian3.cross(fallback, zAxis, east);
-        Cartesian3.normalize(east, east);
-      }
-      
-      const northAxis = Cartesian3.cross(zAxis, east, new Cartesian3());
-      
-      // Create rotation matrix: ITRF frame at satellite position
-      const rotationMatrix = new Matrix3(
-        east.x, northAxis.x, zAxis.x,
-        east.y, northAxis.y, zAxis.y,
-        east.z, northAxis.z, zAxis.z
-      );
-      
-      const quaternion = Quaternion.fromRotationMatrix(rotationMatrix);
-      itrfOrientation.addSample(time, quaternion);
+      itrfOrientation.addSample(times[i], Quaternion.IDENTITY);
     }
-    
     return itrfOrientation;
   }, []);
 
