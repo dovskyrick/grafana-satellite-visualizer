@@ -25,7 +25,7 @@ export function getScaledLength(
     // Pure linear scale: arrows are proportional to camera distance in both
     // directions. Reference point: at 1000 km the arrow is exactly baseLength.
     // Clamp at a small floor so arrows never vanish at extreme close-up.
-    const scaleFactor = Math.max(0.01, distance / 1_000_000);
+    const scaleFactor = Math.max(0.01*(Math.min((distance/2000),1)), distance / 1_000_000);
     return baseLength * scaleFactor;
   }
 
