@@ -444,8 +444,16 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     }
   }, []);
   
+  // ─── View camera distances (metres from satellite) ───────────────────────────
+  // Tweak these to control how far out the camera sits for each snap-to-view.
+  // One Earth radius ≈ 6 371 000 m gives a wide enough zoom-out to see the globe.
+  const VIEW_DISTANCE_NADIR       = 6_371_000; // ~1× Earth radius above satellite
+  const VIEW_DISTANCE_CROSS_TRACK = 6_371_000; // ~1× Earth radius to the side
+  const VIEW_DISTANCE_ALONG_TRACK = 6_371_000; // ~1× Earth radius behind satellite
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Fly camera to satellite with "from above" nadir view
-  const flyToSatelliteNadirView = useCallback((satelliteId: string, duration = 0.5, distance = 4) => {
+  const flyToSatelliteNadirView = useCallback((satelliteId: string, duration = 0.5, distance = VIEW_DISTANCE_NADIR) => {
     const viewer = viewerRef.current?.cesiumElement;
     if (!viewer) {
       return;
@@ -493,7 +501,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     console.log(`🚀 Flying to ${satellite.name} - Nadir View (${distance}m above, ${duration}s)`);
   }, [satellites, viewerRef]);
 
-  const flyToCrossTrackView = useCallback((satelliteId: string, duration = 0.5, distance = 4) => {
+  const flyToCrossTrackView = useCallback((satelliteId: string, duration = 0.5, distance = VIEW_DISTANCE_CROSS_TRACK) => {
     const viewer = viewerRef.current?.cesiumElement;
     const satellite = satellites.find(s => s.id === satelliteId);
     if (!viewer || !satellite) { return; }
@@ -530,7 +538,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     });
   }, [satellites, viewerRef]);
 
-  const flyToAlongTrackView = useCallback((satelliteId: string, duration = 0.5, distance = 4) => {
+  const flyToAlongTrackView = useCallback((satelliteId: string, duration = 0.5, distance = VIEW_DISTANCE_ALONG_TRACK) => {
     const viewer = viewerRef.current?.cesiumElement;
     const satellite = satellites.find(s => s.id === satelliteId);
     if (!viewer || !satellite) { return; }
