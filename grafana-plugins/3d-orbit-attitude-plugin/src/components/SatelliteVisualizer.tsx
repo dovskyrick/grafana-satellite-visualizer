@@ -463,6 +463,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       return;
     }
 
+    // Pause clock during fly so the satellite doesn't drift while the camera is
+    // animating — resume exactly when the flight completes.
+    const wasPlaying = viewer.clock.shouldAnimate;
+    if (wasPlaying) { viewer.clock.shouldAnimate = false; }
+
     // Calculate radial direction (Earth center → Satellite)
     const radialDirection = Cartesian3.subtract(satPos, Cartesian3.ZERO, new Cartesian3());
     Cartesian3.normalize(radialDirection, radialDirection);
@@ -478,10 +483,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     viewer.camera.flyTo({
       destination: cameraPosition,
       orientation: {
-        direction: Cartesian3.negate(radialDirection, new Cartesian3()), // Point toward Earth
-        up: Cartesian3.UNIT_Z, // Keep "up" aligned with Earth's axis
+        direction: Cartesian3.negate(radialDirection, new Cartesian3()),
+        up: Cartesian3.UNIT_Z,
       },
       duration: duration,
+      complete: () => { if (wasPlaying) { viewer.clock.shouldAnimate = true; } },
     });
 
     console.log(`🚀 Flying to ${satellite.name} - Nadir View (${distance}m above, ${duration}s)`);
@@ -495,6 +501,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     const currentTime = viewer.clock.currentTime;
     const satPos = satellite.position.getValue(currentTime);
     if (!satPos) { return; }
+
+    const wasPlaying = viewer.clock.shouldAnimate;
+    if (wasPlaying) { viewer.clock.shouldAnimate = false; }
 
     // Cross-track = orbit normal = normalize(position × velocity)
     const nextTime = JulianDate.addSeconds(currentTime, 1, new JulianDate());
@@ -517,6 +526,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         up: radial,
       },
       duration,
+      complete: () => { if (wasPlaying) { viewer.clock.shouldAnimate = true; } },
     });
   }, [satellites, viewerRef]);
 
@@ -528,6 +538,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     const currentTime = viewer.clock.currentTime;
     const satPos = satellite.position.getValue(currentTime);
     if (!satPos) { return; }
+
+    const wasPlaying = viewer.clock.shouldAnimate;
+    if (wasPlaying) { viewer.clock.shouldAnimate = false; }
 
     // Along-track = direction of motion
     const nextTime = JulianDate.addSeconds(currentTime, 1, new JulianDate());
@@ -550,6 +563,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         up: radial,
       },
       duration,
+      complete: () => { if (wasPlaying) { viewer.clock.shouldAnimate = true; } },
     });
   }, [satellites, viewerRef]);
 
