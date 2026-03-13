@@ -15,21 +15,20 @@ export function getScaledLength(
   viewer: any,
   satellitePosition: Cartesian3
 ): number {
-  if (isTracked) {
-    // Tracked mode: very small fixed length (leverages camera zoom)
-    return 2; // 2 meters
-  }
-  
-  // Untracked mode: scale with camera distance
-  let scaledLength = baseLength;
-  
   if (viewer) {
-    const cameraPosition = viewer.camera.position;
+    // positionWC = World Coordinates (always ECEF), regardless of the camera's
+    // current reference frame. camera.position alone returns local-frame coords
+    // when an entity is tracked (lookAtTransform changes the frame), which would
+    // give a wildly wrong distance (~Earth radius) in satellite focus mode.
+    const cameraPosition = viewer.camera.positionWC;
     const distance = Cartesian3.distance(cameraPosition, satellitePosition);
-    const scaleFactor = Math.max(1.0, distance / 1000000); // Scale based on 1000km reference
-    scaledLength = baseLength * scaleFactor;
+    // Pure linear scale: arrows are proportional to camera distance in both
+    // directions. Reference point: at 1000 km the arrow is exactly baseLength.
+    // Clamp at a small floor so arrows never vanish at extreme close-up.
+    const scaleFactor = Math.max(0.01, distance / 1_000_000);
+    return baseLength * scaleFactor;
   }
-  
-  return scaledLength;
+
+  return baseLength;
 }
 
