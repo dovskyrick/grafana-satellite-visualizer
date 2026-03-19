@@ -416,7 +416,7 @@ export const getStyles = () => {
       }
     `,
     modalOverlay: css`
-      position: fixed;
+      position: absolute;
       top: 0;
       left: 0;
       right: 0;
@@ -427,7 +427,10 @@ export const getStyles = () => {
       justify-content: center;
       z-index: 9999;
       backdrop-filter: blur(4px);
-      
+      padding: 12px;
+      box-sizing: border-box;
+      overflow: hidden;
+
       /* Remove focus outline (we handle ESC, don't need visual focus indicator) */
       &:focus {
         outline: none;
@@ -437,13 +440,14 @@ export const getStyles = () => {
       background: rgba(30, 30, 30, 0.98);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 8px;
-      width: 90%;
+      width: 100%;
       max-width: 600px;
-      max-height: 80vh;
+      max-height: 100%;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      min-height: 0;
     `,
     modalHeader: css`
       display: flex;
@@ -481,11 +485,11 @@ export const getStyles = () => {
       }
     `,
     modalContent: css`
-      padding: 24px 20px;
+      padding: 20px;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
       color: rgba(255, 255, 255, 0.7);
-      max-height: calc(80vh - 120px);
     `,
     settingRow: css`
       display: flex;
