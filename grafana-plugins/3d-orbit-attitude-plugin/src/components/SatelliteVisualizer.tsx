@@ -1816,14 +1816,14 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     <div className={styles.confidenceSliderLabels}>
                       <span className={styles.settingLabel} style={{ cursor: 'default' }}>Confidence Level</span>
                       <span className={styles.confidenceValueBadge}>
-                        {confidenceValues.get(settingsModalSatelliteId!) ?? 5} / 10
+                        {(confidenceValues.get(settingsModalSatelliteId!) ?? 5).toFixed(2)} / 10
                       </span>
                     </div>
                     <input
                       type="range"
                       min={0}
                       max={10}
-                      step={1}
+                      step={0.01}
                       value={confidenceValues.get(settingsModalSatelliteId!) ?? 5}
                       className={styles.confidenceSlider}
                       onChange={(e) => {
