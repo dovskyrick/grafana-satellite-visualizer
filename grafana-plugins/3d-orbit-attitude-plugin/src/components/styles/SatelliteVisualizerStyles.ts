@@ -840,6 +840,99 @@ export const getStyles = () => {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 3px;
     `,
+
+    // Datasource Confidence Review styles
+    confidenceSliderRow: css`
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    `,
+    confidenceSliderLabels: css`
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    `,
+    confidenceValueBadge: css`
+      font-size: 13px;
+      font-weight: 600;
+      color: #7eb8f7;
+      background: rgba(126, 184, 247, 0.12);
+      border: 1px solid rgba(126, 184, 247, 0.3);
+      border-radius: 4px;
+      padding: 2px 8px;
+      min-width: 48px;
+      text-align: center;
+    `,
+    confidenceSlider: css`
+      width: 100%;
+      accent-color: #7eb8f7;
+      cursor: pointer;
+      height: 4px;
+    `,
+    confidenceSliderTicks: css`
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.35);
+      padding: 0 1px;
+      user-select: none;
+    `,
+    confidenceCommentRow: css`
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    `,
+    confidenceCommentLabel: css`
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+    `,
+    confidenceCommentArea: css`
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 12px;
+      padding: 8px 10px;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+      line-height: 1.5;
+      box-sizing: border-box;
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.25);
+      }
+
+      &:focus {
+        border-color: rgba(126, 184, 247, 0.5);
+      }
+    `,
+    confidenceSubmitRow: css`
+      display: flex;
+      justify-content: flex-end;
+    `,
+    confidenceSubmitButton: css`
+      padding: 7px 18px;
+      background: #3b6fd4;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+
+      &:hover {
+        background: #4d80e8;
+      }
+
+      &:active {
+        background: #2d5bb0;
+      }
+    `,
   };
 };
 

@@ -175,6 +175,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
   // LoS warning modal state
   const [showLoSWarningModal, setShowLoSWarningModal] = useState<boolean>(false);
+  const [showReviewSubmittedModal, setShowReviewSubmittedModal] = useState<boolean>(false);
+
+  // Per-satellite datasource confidence review (UI only — would feed a digital twin)
+  const [confidenceValues, setConfidenceValues] = useState<Map<string, number>>(new Map());
+  const [confidenceComments, setConfidenceComments] = useState<Map<string, string>>(new Map());
   
   // Per-satellite render settings (for future features like transparent cones)
   const [satelliteRenderSettings, setSatelliteRenderSettings] = useState<Map<string, {
@@ -1798,6 +1803,69 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 </div>
 
                 </div> {/* End Render Settings Group */}
+
+                {/* Datasource Confidence Review Section */}
+                <div className={styles.settingsGroup}>
+                  <h4 className={styles.settingsGroupTitle}>Datasource Confidence Review</h4>
+                  <div className={styles.settingDescription} style={{ marginLeft: 0, marginBottom: 12 }}>
+                    Rate your confidence in this datasource and optionally leave a comment for the operations team.
+                  </div>
+
+                  {/* Confidence Slider */}
+                  <div className={styles.confidenceSliderRow}>
+                    <div className={styles.confidenceSliderLabels}>
+                      <span className={styles.settingLabel} style={{ cursor: 'default' }}>Confidence Level</span>
+                      <span className={styles.confidenceValueBadge}>
+                        {confidenceValues.get(settingsModalSatelliteId!) ?? 5} / 10
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      step={1}
+                      value={confidenceValues.get(settingsModalSatelliteId!) ?? 5}
+                      className={styles.confidenceSlider}
+                      onChange={(e) => {
+                        const newMap = new Map(confidenceValues);
+                        newMap.set(settingsModalSatelliteId!, Number(e.target.value));
+                        setConfidenceValues(newMap);
+                      }}
+                    />
+                    <div className={styles.confidenceSliderTicks}>
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <span key={n}>{n}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Comment Textarea */}
+                  <div className={styles.confidenceCommentRow}>
+                    <label className={styles.confidenceCommentLabel}>Comment (optional)</label>
+                    <textarea
+                      className={styles.confidenceCommentArea}
+                      placeholder="Describe any anomalies, data quality concerns, or observations…"
+                      rows={3}
+                      value={confidenceComments.get(settingsModalSatelliteId!) ?? ''}
+                      onChange={(e) => {
+                        const newMap = new Map(confidenceComments);
+                        newMap.set(settingsModalSatelliteId!, e.target.value);
+                        setConfidenceComments(newMap);
+                      }}
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className={styles.confidenceSubmitRow}>
+                    <button
+                      className={styles.confidenceSubmitButton}
+                      onClick={() => setShowReviewSubmittedModal(true)}
+                    >
+                      Submit Review
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -1908,6 +1976,60 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               }}
             >
               Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Datasource Confidence Review — Submitted Confirmation Modal */}
+      {showReviewSubmittedModal && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowReviewSubmittedModal(false)}
+        >
+          <div
+            style={{
+              background: '#1c1c2e',
+              border: '1px solid #444',
+              borderRadius: 8,
+              padding: '24px 28px',
+              maxWidth: 360,
+              color: '#e0e0e0',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 32, marginBottom: 10 }}>✅</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#fff' }}>
+              Review Submitted
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 18, color: '#aaa' }}>
+              Your confidence rating and comment have been recorded.
+              In a connected digital twin environment, this review would be persisted and
+              made available to the operations team.
+            </div>
+            <button
+              onClick={() => setShowReviewSubmittedModal(false)}
+              style={{
+                background: '#3b6fd4',
+                border: 'none',
+                borderRadius: 5,
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: 13,
+                padding: '7px 18px',
+              }}
+            >
+              OK
             </button>
           </div>
         </div>
