@@ -27,7 +27,7 @@
  * See: grafana-plugins/plans-broad-scope/25-12-december/31-refactoring-complete-summary.md
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { Color, Cartesian3, Cartesian2, Resource, IonResource, LabelStyle, HorizontalOrigin, VerticalOrigin, ArcType, Matrix3, CallbackProperty, PolylineArrowMaterialProperty, PolylineDashMaterialProperty, Quaternion, PolygonHierarchy, Ellipsoid, JulianDate, Simon1994PlanetaryPositions, Transforms, SampledPositionProperty, ReferenceFrame, LagrangePolynomialApproximation, TimeInterval, TimeIntervalCollection } from 'cesium';
 import { Entity, PointGraphics, LabelGraphics, PolylineGraphics, PolygonGraphics, ModelGraphics, PathGraphics, EllipsoidGraphics } from 'resium';
 import { ParsedSatellite } from 'types/satelliteTypes';
@@ -249,6 +249,28 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
   customColor, // User-selected color from settings UI
   selectedMode,
 }) => {
+  // Cached cone length — recomputed only when the camera moves, not every render
+  // frame. Reading camera.positionWC inside CallbackProperty causes the distance
+  // to oscillate as the satellite moves during playback, producing flickering and
+  // the apparent 5× size increase. Decoupling from the clock tick fixes both.
+  const coneScaleRef = useRef<number>(30000);
+
+  useEffect(() => {
+    const viewer = viewerRef.current?.cesiumElement;
+    if (!viewer) { return; }
+
+    const updateScale = () => {
+      const satPos = satellite.position.getValue(viewer.clock.currentTime);
+      if (satPos) {
+        coneScaleRef.current = getScaledLength(30000, isTracked, viewer, satPos);
+      }
+    };
+
+    updateScale();
+    viewer.camera.moveEnd.addEventListener(updateScale);
+    return () => { viewer.camera.moveEnd.removeEventListener(updateScale); };
+  }, [satellite, isTracked, viewerRef]);
+
   // Priority for color selection:
   // 1. customColor (from UI settings - highest priority)
   // 2. sensor.color (from JSON)
@@ -309,11 +331,9 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
               );
               Cartesian3.normalize(sensorDir, sensorDir);
               
-              // Generate cone mesh with camera-scaled length (reduced to 60% to avoid overlap with reference axes)
-              const viewer = viewerRef.current?.cesiumElement;
-              let coneLength = getScaledLength(30000, isTracked, viewer, satPos);
-              
-              // In tracked mode, reduce sensor cones to 60% of standard tracked length
+              // Use cached cone length — avoids per-frame camera distance recalc
+              let coneLength = coneScaleRef.current;
+
               if (isTracked) {
                 coneLength *= 0.9;
               }
@@ -361,14 +381,9 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
           const rotMatrix = Matrix3.fromQuaternion(sensorWorldQuat);
           const sensorDir = Matrix3.getColumn(rotMatrix, 2, new Cartesian3());
           
-          // Get scaled cone length
-          const viewer = viewerRef.current?.cesiumElement;
-          if (!viewer) {
-            return [];
-          }
-          let coneLength = getScaledLength(30000, isTracked, viewer, satPos);
-          
-          // In tracked mode, reduce sensor cones to 60% of standard tracked length
+          // Use cached cone length — avoids per-frame camera distance recalc
+          let coneLength = coneScaleRef.current;
+
           if (isTracked) {
             coneLength *= 0.6;
           }
@@ -595,6 +610,28 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
   viewerRef,
   attitudeVectors,
 }) => {
+  // Cached vector length — recomputed only when the camera moves, not every
+  // render frame. Reading camera.positionWC inside CallbackProperty oscillates
+  // with the satellite's orbital position during playback, causing flickering
+  // and the apparent 5× size increase. Decoupling from the clock tick fixes both.
+  const vectorScaleRef = useRef<number>(50000);
+
+  useEffect(() => {
+    const viewer = viewerRef.current?.cesiumElement;
+    if (!viewer) { return; }
+
+    const updateScale = () => {
+      const satPos = satellite.position.getValue(viewer.clock.currentTime);
+      if (satPos) {
+        vectorScaleRef.current = getScaledLength(50000, isTracked, viewer, satPos);
+      }
+    };
+
+    updateScale();
+    viewer.camera.moveEnd.addEventListener(updateScale);
+    return () => { viewer.camera.moveEnd.removeEventListener(updateScale); };
+  }, [satellite, isTracked, viewerRef]);
+
   return (
     <>
       {attitudeVectors.map((vector, index) => {
@@ -614,9 +651,8 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
                     return [];
                   }
                   
-                  // Calculate dynamic vector length based on tracking mode and camera distance
-                  const viewer = viewerRef.current?.cesiumElement;
-                  const vectorLength = getScaledLength(50000, isTracked, viewer, pos);
+                  // Use cached vector length — avoids per-frame camera distance recalc
+                  const vectorLength = vectorScaleRef.current;
                   
                   // Rotate axis by satellite orientation to get direction in ECEF
                   const rotationMatrix = Matrix3.fromQuaternion(orient);
@@ -647,9 +683,8 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
                   return Cartesian3.ZERO;
                 }
                 
-                // Calculate dynamic vector length (same as the line)
-                const viewer = viewerRef.current?.cesiumElement;
-                const vectorLength = getScaledLength(50000, isTracked, viewer, pos);
+                // Use cached vector length — avoids per-frame camera distance recalc
+                const vectorLength = vectorScaleRef.current;
                 
                 // Rotate axis by satellite orientation to get direction in ECEF
                 const rotationMatrix = Matrix3.fromQuaternion(orient);
