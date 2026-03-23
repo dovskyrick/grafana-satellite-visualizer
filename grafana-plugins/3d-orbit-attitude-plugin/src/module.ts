@@ -6,6 +6,14 @@ import { LocationEditor } from './LocationEditor';
 
 export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPanelOptions((builder) => {
   return builder
+    .addTextInput({
+      path: 'digitalTwinUrl',
+      name: 'Digital Twin Server URL',
+      description: 'Fetch trajectory data from this server instead of the datasource (e.g. http://localhost:3001). Leave empty to use the datasource as normal.',
+      defaultValue: '',
+      category: ['Data Source'],
+    })
+
     .addRadio({
       path: 'assetMode',
       name: 'Display mode',

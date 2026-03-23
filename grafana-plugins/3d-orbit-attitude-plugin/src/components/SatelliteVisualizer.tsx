@@ -40,7 +40,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { PanelProps, DataHoverEvent, LegacyGraphHoverEvent } from '@grafana/data';
+import { PanelProps, DataHoverEvent, LegacyGraphHoverEvent, DataFrame } from '@grafana/data';
 import { SimpleOptions } from 'types';
 import { generateRADecGrid, generateRADecGridLabels } from 'utils/celestialGrid';
 import { parseSatellites } from 'parsers/satelliteParser';
@@ -124,6 +124,32 @@ function computeAzEl(
 // Tweak GS_POV_FOV_DEG to change the field of view when in Ground Station mode.
 // 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
 const GS_POV_FOV_DEG = 179;
+
+// ─── Digital Twin helpers ─────────────────────────────────────────────────────
+/**
+ * Convert the raw JSON array returned by the mockup digital twin server into
+ * lightweight DataFrame-compatible objects that the existing parsers can consume.
+ * The server returns the same columns/rows/meta structure as TestData DB.
+ */
+function rawJsonToDataFrames(items: any[]): DataFrame[] {
+  return items.map(item => {
+    const columns: Array<{ text: string; type: string }> = item.columns || [];
+    const rows: any[][] = item.rows || [];
+    const fields = columns.map((col, colIdx) => ({
+      name: col.text,
+      type: col.type,
+      values: rows.map(row => row[colIdx]),
+      config: {},
+    }));
+    return {
+      name: item.meta?.custom?.satelliteId ?? item.type ?? 'unknown',
+      fields,
+      length: rows.length,
+      meta: item.meta,
+    } as DataFrame;
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange, data, timeRange, width, height, eventBus }) => {
@@ -787,29 +813,25 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   }, [timeRange]);
 
   // Parse satellite data from DataFrames
-  // Main data parsing: extract satellite position, orientation, availability, and sensors
-  // Note: parseSatellites() only uses options.coordinatesType internally, but we pass full options object for type compatibility
+  // Main data parsing: extract satellite position, orientation, availability, and sensors.
+  // If options.digitalTwinUrl is set, data is fetched from the mockup digital twin server
+  // using the panel's current time range and converted before parsing.  On fetch failure,
+  // the panel silently falls back to the configured datasource (check F12 console for warnings).
+  // Note: parseSatellites() only uses options.coordinatesType internally.
   useEffect(() => {
     if (!isLoaded) {
       return;
     }
 
-    if (data.series.length > 0) {
-      console.log(`🛰️ Parsing ${data.series.length} satellite(s)...`);
-      
+    function applyFrames(frames: DataFrame[], panelDataForGs: typeof data) {
       try {
-        const parsedSatellites = parseSatellites(data.series, options);
+        const parsedSatellites = parseSatellites(frames, options);
         setSatellites(parsedSatellites);
-        
-        // Parse ground stations
-        const parsedGroundStations = parseGroundStations(data);
+        const parsedGroundStations = parseGroundStations(panelDataForGs);
         setGroundStations(parsedGroundStations);
         console.log(`📡 Parsed ${parsedGroundStations.length} ground station(s)`);
-        
-        // Set timestamp from first satellite's first data point
         if (parsedSatellites.length > 0) {
-          const firstSatellite = parsedSatellites[0];
-          const firstInterval = firstSatellite.availability.get(0);
+          const firstInterval = parsedSatellites[0].availability.get(0);
           if (firstInterval) {
             setTimestamp(firstInterval.start);
           }
@@ -819,11 +841,42 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         setSatellites([]);
         setGroundStations([]);
       }
-    } else {
-      setSatellites([]);
     }
+
+    function fallbackToDatasource() {
+      if (data.series.length > 0) {
+        console.log(`🛰️ Parsing ${data.series.length} satellite(s) from datasource...`);
+        applyFrames(data.series, data);
+      } else {
+        setSatellites([]);
+      }
+    }
+
+    if (options.digitalTwinUrl) {
+      const from = timeRange.from.valueOf();
+      const to = timeRange.to.valueOf();
+      const url = `${options.digitalTwinUrl}/api/satellites?from=${from}&to=${to}`;
+
+      fetch(url)
+        .then(r => {
+          if (!r.ok) { throw new Error(`HTTP ${r.status}`); }
+          return r.json();
+        })
+        .then((rawJson: any[]) => {
+          console.log(`🛰️ Digital twin: received ${rawJson.length} frame(s) from ${url}`);
+          const frames = rawJsonToDataFrames(rawJson);
+          applyFrames(frames, { ...data, series: frames });
+        })
+        .catch(err => {
+          console.warn(`⚠️ Digital twin fetch failed (${url}): ${err.message}. Falling back to datasource.`);
+          fallbackToDatasource();
+        });
+      return;
+    }
+
+    fallbackToDatasource();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, options.coordinatesType, isLoaded]); // Only coordinatesType affects parsing; other options are for rendering only
+  }, [data, options.coordinatesType, options.digitalTwinUrl, timeRange.from.valueOf(), timeRange.to.valueOf(), isLoaded]);
   
   // Default to tracking first satellite
   useEffect(() => {

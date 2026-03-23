@@ -41,6 +41,8 @@ export interface SimpleOptions {
   locationPointSize: number;
   locationPointColor: string;
 
+  digitalTwinUrl: string;
+
   accessToken: string;
 
   subscribeToDataHoverEvent: boolean;
