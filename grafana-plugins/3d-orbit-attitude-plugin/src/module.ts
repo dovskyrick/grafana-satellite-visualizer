@@ -66,7 +66,7 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
       path: 'modelMaximumScale',
       name: 'Maximum scale',
       description: 'The maximum scale size of the model (minimum pizel size upper limit).',
-      defaultValue: 20000,
+      defaultValue: 500,
       showIf: (config) => config.assetMode === AssetMode.Model,
     })
     .addNumberInput({
