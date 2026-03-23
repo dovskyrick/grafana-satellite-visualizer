@@ -1038,6 +1038,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             
             // Controller limit: 3x Earth radius (works smoothly for tracked mode)
             controller.maximumZoomDistance = earthRadius * 3; // ~19,134 km
+            controller.minimumZoomDistance = 5; // 5 metres
             controller.enableCollisionDetection = false;
             
             // Hard camera height limit: 5x Earth radius (catches free camera mode)

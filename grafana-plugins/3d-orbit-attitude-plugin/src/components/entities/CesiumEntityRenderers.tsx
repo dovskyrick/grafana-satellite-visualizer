@@ -315,7 +315,7 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
               
               // In tracked mode, reduce sensor cones to 60% of standard tracked length
               if (isTracked) {
-                coneLength *= 0.6;
+                coneLength *= 0.9;
               }
               
               return generateConeMesh(satPos, sensorDir, sensor.fov, coneLength, 16);
