@@ -253,7 +253,7 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
   // frame. Reading camera.positionWC inside CallbackProperty causes the distance
   // to oscillate as the satellite moves during playback, producing flickering and
   // the apparent 5× size increase. Decoupling from the clock tick fixes both.
-  const coneScaleRef = useRef<number>(30000);
+  const coneScaleRef = useRef<number>(300);
 
   useEffect(() => {
     const viewer = viewerRef.current?.cesiumElement;
@@ -262,14 +262,14 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
     const updateScale = () => {
       const satPos = satellite.position.getValue(viewer.clock.currentTime);
       if (satPos) {
-        coneScaleRef.current = getScaledLength(30000, isTracked, viewer, satPos);
+        coneScaleRef.current = getScaledLength(50, viewer, satPos);
       }
     };
 
     updateScale();
-    viewer.camera.moveEnd.addEventListener(updateScale);
-    return () => { viewer.camera.moveEnd.removeEventListener(updateScale); };
-  }, [satellite, isTracked, viewerRef]);
+    viewer.scene.postRender.addEventListener(updateScale);
+    return () => { viewer.scene.postRender.removeEventListener(updateScale); };
+  }, [satellite, viewerRef]);
 
   // Priority for color selection:
   // 1. customColor (from UI settings - highest priority)
@@ -614,7 +614,7 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
   // render frame. Reading camera.positionWC inside CallbackProperty oscillates
   // with the satellite's orbital position during playback, causing flickering
   // and the apparent 5× size increase. Decoupling from the clock tick fixes both.
-  const vectorScaleRef = useRef<number>(50000);
+  const vectorScaleRef = useRef<number>(500);
 
   useEffect(() => {
     const viewer = viewerRef.current?.cesiumElement;
@@ -623,14 +623,14 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
     const updateScale = () => {
       const satPos = satellite.position.getValue(viewer.clock.currentTime);
       if (satPos) {
-        vectorScaleRef.current = getScaledLength(50000, isTracked, viewer, satPos);
+        vectorScaleRef.current = getScaledLength(80, viewer, satPos);
       }
     };
 
     updateScale();
-    viewer.camera.moveEnd.addEventListener(updateScale);
-    return () => { viewer.camera.moveEnd.removeEventListener(updateScale); };
-  }, [satellite, isTracked, viewerRef]);
+    viewer.scene.postRender.addEventListener(updateScale);
+    return () => { viewer.scene.postRender.removeEventListener(updateScale); };
+  }, [satellite, viewerRef]);
 
   return (
     <>
