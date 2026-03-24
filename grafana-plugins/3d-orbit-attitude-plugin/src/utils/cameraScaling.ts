@@ -27,5 +27,5 @@ export function getScaledLength(
   const distance     = Cartesian3.distance(camera.positionWC, satellitePosition);
   const sseDenominator: number = camera.frustum.sseDenominator;
   const screenHeight: number   = viewer.scene.drawingBufferHeight;
-  return targetPixels * distance * sseDenominator / screenHeight;
+  return targetPixels * Math.max(distance, 10) * sseDenominator / screenHeight;
 }
