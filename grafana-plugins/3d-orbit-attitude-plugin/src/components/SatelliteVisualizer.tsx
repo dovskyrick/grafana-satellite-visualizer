@@ -606,6 +606,21 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     });
   }, [satellites, viewerRef]);
 
+  const flyToFreeView = useCallback((satelliteId: string, duration = 0.5) => {
+    const viewer = viewerRef.current?.cesiumElement;
+    const satellite = satellites.find(s => s.id === satelliteId);
+    if (!viewer || !satellite) { return; }
+    const satPos = satellite.position.getValue(viewer.clock.currentTime);
+    if (!satPos) { return; }
+    const diagonal = Cartesian3.normalize(new Cartesian3(1, 1, 1), new Cartesian3());
+    const cameraPos = Cartesian3.add(satPos, Cartesian3.multiplyByScalar(diagonal, VIEW_DISTANCE_NADIR, new Cartesian3()), new Cartesian3());
+    viewer.camera.flyTo({
+      destination: cameraPos,
+      orientation: { direction: Cartesian3.normalize(Cartesian3.subtract(satPos, cameraPos, new Cartesian3()), new Cartesian3()), up: Cartesian3.UNIT_Z },
+      duration,
+    });
+  }, [satellites, viewerRef]);
+
   // Auto-track satellite and adjust camera based on mode
   useEffect(() => {
     if (selectedMode === 'satellite' || selectedMode === 'celestial') {
@@ -1059,6 +1074,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             onNadirViewClick={() => trackedSatelliteId && flyToSatelliteNadirView(trackedSatelliteId)}
             onCrossTrackViewClick={() => trackedSatelliteId && flyToCrossTrackView(trackedSatelliteId)}
             onAlongTrackViewClick={() => trackedSatelliteId && flyToAlongTrackView(trackedSatelliteId)}
+            onFixedViewClick={() => trackedSatelliteId && flyToFreeView(trackedSatelliteId)}
             trackedSatelliteId={trackedSatelliteId}
             styles={styles}
           />

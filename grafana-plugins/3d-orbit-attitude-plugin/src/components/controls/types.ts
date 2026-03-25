@@ -56,6 +56,7 @@ export interface TopLeftControlsProps {
   onNadirViewClick?: () => void;
   onCrossTrackViewClick?: () => void;
   onAlongTrackViewClick?: () => void;
+  onFixedViewClick?: () => void;
   
   // Tracked satellite ID (for nadir view)
   trackedSatelliteId: string | null;

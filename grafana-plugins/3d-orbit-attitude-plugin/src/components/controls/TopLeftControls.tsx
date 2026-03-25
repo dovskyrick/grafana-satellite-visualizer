@@ -37,6 +37,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
   onNadirViewClick,
   onCrossTrackViewClick,
   onAlongTrackViewClick,
+  onFixedViewClick,
   trackedSatelliteId,
   styles,
 }) => {
@@ -172,7 +173,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                   onClick={() => {
                     setSatelliteCameraView('fixed');
                     setIsCameraDropdownOpen(false);
-                    // TODO: Implement fixed inertial view
+                    if (trackedSatelliteId && onFixedViewClick) { onFixedViewClick(); }
                   }}
                 >
                   <span className={styles.dropdownItemLabel}>🧭 Fixed Inertial</span>
