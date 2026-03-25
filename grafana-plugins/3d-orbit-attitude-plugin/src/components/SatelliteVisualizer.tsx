@@ -612,8 +612,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     if (!viewer || !satellite) { return; }
     const satPos = satellite.position.getValue(viewer.clock.currentTime);
     if (!satPos) { return; }
-    const diagonal = Cartesian3.normalize(new Cartesian3(1, 1, 1), new Cartesian3());
-    const cameraPos = Cartesian3.add(satPos, Cartesian3.multiplyByScalar(diagonal, VIEW_DISTANCE_NADIR, new Cartesian3()), new Cartesian3());
+    const diagonal = Cartesian3.normalize(new Cartesian3(1, 0 , 1), new Cartesian3());
+    const cameraPos = Cartesian3.add(satPos, Cartesian3.multiplyByScalar(diagonal, 5, new Cartesian3()), new Cartesian3());
     viewer.camera.flyTo({
       destination: cameraPos,
       orientation: { direction: Cartesian3.normalize(Cartesian3.subtract(satPos, cameraPos, new Cartesian3()), new Cartesian3()), up: Cartesian3.UNIT_Z },
