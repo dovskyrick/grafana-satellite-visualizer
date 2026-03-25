@@ -90,6 +90,9 @@ export interface SidebarControlsProps {
   hiddenGroundStations: Set<string>;
   setHiddenGroundStations: (value: Set<string>) => void;
   
+  // Mode control
+  setSelectedMode: (mode: 'satellite' | 'earth' | 'celestial' | 'groundstation') => void;
+
   // Modal controls
   setSettingsModalSatelliteId: (id: string | null) => void;
   setSettingsModalGroundStationId: (id: string | null) => void;

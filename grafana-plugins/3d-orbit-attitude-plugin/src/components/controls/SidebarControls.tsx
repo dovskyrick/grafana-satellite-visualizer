@@ -23,6 +23,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   setTrackedSatelliteId,
   trackedGroundStationId,
   setTrackedGroundStationId,
+  setSelectedMode,
   hiddenSatellites,
   setHiddenSatellites,
   hiddenGroundStations,
@@ -189,8 +190,8 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                           className={styles.povButton}
                           onClick={(e) => {
                             e.stopPropagation();
-                            // TODO: Implement POV functionality
-                            console.log(`POV clicked for ground station: ${gs.name}`);
+                            setTrackedGroundStationId(gs.id);
+                            setSelectedMode('groundstation');
                           }}
                           title="Switch to ground station POV"
                         >

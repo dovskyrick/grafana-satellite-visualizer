@@ -1719,6 +1719,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           setTrackedSatelliteId={setTrackedSatelliteId}
           trackedGroundStationId={trackedGroundStationId}
           setTrackedGroundStationId={setTrackedGroundStationId}
+          setSelectedMode={setSelectedMode}
           hiddenSatellites={hiddenSatellites}
           setHiddenSatellites={setHiddenSatellites}
           hiddenGroundStations={hiddenGroundStations}
