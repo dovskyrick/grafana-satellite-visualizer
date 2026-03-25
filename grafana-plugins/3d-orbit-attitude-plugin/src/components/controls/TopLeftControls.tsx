@@ -133,7 +133,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
             {selectedMode === 'satellite' && (
               <>
                 <div
-                  className={`${styles.dropdownItem} ${satelliteCameraView === 'nadir' ? 'active' : ''}`}
+                  className={styles.dropdownItem}
                   onClick={() => {
                     setSatelliteCameraView('nadir');
                     setIsCameraDropdownOpen(false);
@@ -147,7 +147,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                   <span className={styles.dropdownItemDescription}>View from directly above</span>
                 </div>
                 <div
-                  className={`${styles.dropdownItem} ${satelliteCameraView === 'cross-track' ? 'active' : ''}`}
+                  className={styles.dropdownItem}
                   onClick={() => {
                     setSatelliteCameraView('cross-track');
                     setIsCameraDropdownOpen(false);
@@ -158,7 +158,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                   <span className={styles.dropdownItemDescription}>Camera along orbit normal</span>
                 </div>
                 <div
-                  className={`${styles.dropdownItem} ${satelliteCameraView === 'along-track' ? 'active' : ''}`}
+                  className={styles.dropdownItem}
                   onClick={() => {
                     setSatelliteCameraView('along-track');
                     setIsCameraDropdownOpen(false);
@@ -169,7 +169,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                   <span className={styles.dropdownItemDescription}>From behind satellite, motion forward</span>
                 </div>
                 <div
-                  className={`${styles.dropdownItem} ${satelliteCameraView === 'fixed' ? 'active' : ''}`}
+                  className={styles.dropdownItem}
                   onClick={() => {
                     setSatelliteCameraView('fixed');
                     setIsCameraDropdownOpen(false);
