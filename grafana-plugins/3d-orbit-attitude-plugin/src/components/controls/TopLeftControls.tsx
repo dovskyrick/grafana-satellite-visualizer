@@ -50,6 +50,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           onClick={() => {
             setIsModeDropdownOpen(!isModeDropdownOpen);
             setIsCameraDropdownOpen(false);
+            setIsAxesDropdownOpen(false);
           }}
           title="View Mode"
         >
@@ -116,6 +117,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
             if (selectedMode === 'earth' || selectedMode === 'groundstation') { return; }
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
+            setIsAxesDropdownOpen(false);
           }}
           title={
             selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' :
