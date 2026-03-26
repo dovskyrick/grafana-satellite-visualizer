@@ -247,42 +247,46 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const satelliteModalRef = React.useRef<HTMLDivElement>(null);
   const groundStationModalRef = React.useRef<HTMLDivElement>(null);
 
-  // Attitude vector configurations - single color with different brightness levels
-  // Body Axes - Almost white, all same brightness (90% opacity)
+  // Attitude vector configurations — colors driven by frameColors state (legend color picker)
+  // Default fallbacks match the initial frameColors values so startup appearance is identical.
   const attitudeVectors = React.useMemo(() => {
+    const color = Color.fromCssColorString(frameColors.body) ?? Color.fromBytes(245, 245, 250, 230);
     return [
-      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(245, 245, 250, 230), name: 'Body-X', label: 'X' },
-      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(245, 245, 250, 230), name: 'Body-Y', label: 'Y' },
-      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(245, 245, 250, 230), name: 'Body-Z', label: 'Z' },
+      { axis: new Cartesian3(1, 0, 0), color, name: 'Body-X', label: 'X' },
+      { axis: new Cartesian3(0, 1, 0), color, name: 'Body-Y', label: 'Y' },
+      { axis: new Cartesian3(0, 0, 1), color, name: 'Body-Z', label: 'Z' },
     ];
-  }, []);
+  }, [frameColors.body]);
 
-  // LVLH Axes - Medium grey; R = Radial, A = Along-track, C = Cross-track
+  // LVLH Axes — R = Radial, A = Along-track, C = Cross-track
   const lvlhVectors = React.useMemo(() => {
+    const color = Color.fromCssColorString(frameColors.lvlh) ?? Color.fromBytes(180, 180, 185, 179);
     return [
-      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(180, 180, 185, 179), name: 'Cross-track', label: 'C' },
-      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(180, 180, 185, 179), name: 'Along-track', label: 'A' },
-      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(180, 180, 185, 179), name: 'Radial',       label: 'R' },
+      { axis: new Cartesian3(1, 0, 0), color, name: 'Cross-track', label: 'C' },
+      { axis: new Cartesian3(0, 1, 0), color, name: 'Along-track', label: 'A' },
+      { axis: new Cartesian3(0, 0, 1), color, name: 'Radial',       label: 'R' },
     ];
-  }, []);
+  }, [frameColors.lvlh]);
 
-  // ITRF Axes - Dark grey (60% opacity); X/Y/Z aligned with ECEF frame
+  // ITRF Axes — X/Y/Z aligned with ECEF frame
   const itrfVectors = React.useMemo(() => {
+    const color = Color.fromCssColorString(frameColors.itrf) ?? Color.fromBytes(120, 120, 130, 153);
     return [
-      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(120, 120, 130, 153), name: 'ITRF-X', label: 'X' },
-      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(120, 120, 130, 153), name: 'ITRF-Y', label: 'Y' },
-      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(120, 120, 130, 153), name: 'ITRF-Z', label: 'Z' },
+      { axis: new Cartesian3(1, 0, 0), color, name: 'ITRF-X', label: 'X' },
+      { axis: new Cartesian3(0, 1, 0), color, name: 'ITRF-Y', label: 'Y' },
+      { axis: new Cartesian3(0, 0, 1), color, name: 'ITRF-Z', label: 'Z' },
     ];
-  }, []);
+  }, [frameColors.itrf]);
 
-  // ICRF Axes - Steel blue (60% opacity); X: vernal equinox, Z: north celestial pole
+  // ICRF Axes — X: vernal equinox, Z: north celestial pole
   const icrfVectors = React.useMemo(() => {
+    const color = Color.fromCssColorString(frameColors.icrf) ?? Color.fromBytes(140, 170, 215, 153);
     return [
-      { axis: new Cartesian3(1, 0, 0), color: Color.fromBytes(140, 170, 215, 153), name: 'ICRF-X', label: 'X' },
-      { axis: new Cartesian3(0, 1, 0), color: Color.fromBytes(140, 170, 215, 153), name: 'ICRF-Y', label: 'Y' },
-      { axis: new Cartesian3(0, 0, 1), color: Color.fromBytes(140, 170, 215, 153), name: 'ICRF-Z', label: 'Z' },
+      { axis: new Cartesian3(1, 0, 0), color, name: 'ICRF-X', label: 'X' },
+      { axis: new Cartesian3(0, 1, 0), color, name: 'ICRF-Y', label: 'Y' },
+      { axis: new Cartesian3(0, 0, 1), color, name: 'ICRF-Z', label: 'Z' },
     ];
-  }, []);
+  }, [frameColors.icrf]);
 
   // Compute LVLH orientation from position and velocity
   const computeLVLHOrientation = React.useCallback((satellite: ParsedSatellite) => {
