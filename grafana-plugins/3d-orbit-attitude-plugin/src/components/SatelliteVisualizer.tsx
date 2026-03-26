@@ -192,8 +192,13 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const [showICRFAxes, setShowICRFAxes] = useState<boolean>(false);
   
   // Legend panel state
-  const [expandedLegendItem, setExpandedLegendItem] = useState<string | null>(null);
   const [isLegendCollapsed, setIsLegendCollapsed] = useState<boolean>(false);
+  const [frameColors, setFrameColors] = useState({
+    body: 'rgba(245, 245, 250, 0.9)',
+    lvlh: 'rgba(180, 180, 185, 0.7)',
+    itrf: 'rgba(120, 120, 130, 0.6)',
+    icrf: 'rgba(140, 170, 215, 0.6)',
+  });
   
   // Hover tooltip state
   const [hoveredEntityName, setHoveredEntityName] = useState<string | null>(null);
@@ -1481,72 +1486,83 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               <div className={styles.legendSection}>
                 <div className={styles.legendSectionTitle}>Reference Frames</div>
                 
-                {/* Body Axes Frame - Almost white (90% opacity) */}
+                {/* Body Axes Frame */}
                 {showBodyAxes && (
                   <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColorSwatch}
-                      style={{ background: 'rgba(245, 245, 250, 0.9)' }}
-                      onClick={() => setExpandedLegendItem(expandedLegendItem === 'body' ? null : 'body')}
-                    />
+                    <ColorPicker
+                      color={frameColors.body}
+                      onChange={(color) => setFrameColors(prev => ({ ...prev, body: color }))}
+                    >
+                      {({ ref, showColorPicker }) => (
+                        <div
+                          ref={ref}
+                          className={styles.legendColorSwatch}
+                          style={{ background: frameColors.body }}
+                          onClick={showColorPicker}
+                        />
+                      )}
+                    </ColorPicker>
                     <span className={styles.legendItemName}>Body Axes</span>
                   </div>
                 )}
-                {expandedLegendItem === 'body' && (
-                  <div className={styles.legendColorPicker}>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Color picker here</div>
-                  </div>
-                )}
-                
-                {/* LVLH Frame - Medium grey (70% opacity) */}
+
+                {/* LVLH Frame */}
                 {showLVLHAxes && (
                   <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColorSwatch}
-                      style={{ background: 'rgba(180, 180, 185, 0.7)' }}
-                      onClick={() => setExpandedLegendItem(expandedLegendItem === 'lvlh' ? null : 'lvlh')}
-                    />
+                    <ColorPicker
+                      color={frameColors.lvlh}
+                      onChange={(color) => setFrameColors(prev => ({ ...prev, lvlh: color }))}
+                    >
+                      {({ ref, showColorPicker }) => (
+                        <div
+                          ref={ref}
+                          className={styles.legendColorSwatch}
+                          style={{ background: frameColors.lvlh }}
+                          onClick={showColorPicker}
+                        />
+                      )}
+                    </ColorPicker>
                     <span className={styles.legendItemName}>LVLH Frame</span>
                   </div>
                 )}
-                {expandedLegendItem === 'lvlh' && (
-                  <div className={styles.legendColorPicker}>
-                    {/* Placeholder for color picker */}
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Color picker here</div>
-                  </div>
-                )}
-                
-                {/* ITRF Frame - Dark grey (60% opacity) */}
+
+                {/* ITRF Frame */}
                 {showITRFAxes && (
                   <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColorSwatch}
-                      style={{ background: 'rgba(120, 120, 130, 0.6)' }}
-                      onClick={() => setExpandedLegendItem(expandedLegendItem === 'itrf' ? null : 'itrf')}
-                    />
+                    <ColorPicker
+                      color={frameColors.itrf}
+                      onChange={(color) => setFrameColors(prev => ({ ...prev, itrf: color }))}
+                    >
+                      {({ ref, showColorPicker }) => (
+                        <div
+                          ref={ref}
+                          className={styles.legendColorSwatch}
+                          style={{ background: frameColors.itrf }}
+                          onClick={showColorPicker}
+                        />
+                      )}
+                    </ColorPicker>
                     <span className={styles.legendItemName}>ITRF Frame</span>
                   </div>
                 )}
-                {expandedLegendItem === 'itrf' && (
-                  <div className={styles.legendColorPicker}>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Color picker here</div>
-                  </div>
-                )}
-                
-                {/* ICRF Frame - Celestial inertial (X: vernal equinox, Z: north celestial pole) */}
+
+                {/* ICRF Frame */}
                 {showICRFAxes && (
                   <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColorSwatch}
-                      style={{ background: 'rgba(140, 170, 215, 0.6)' }}
-                      onClick={() => setExpandedLegendItem(expandedLegendItem === 'icrf' ? null : 'icrf')}
-                    />
+                    <ColorPicker
+                      color={frameColors.icrf}
+                      onChange={(color) => setFrameColors(prev => ({ ...prev, icrf: color }))}
+                    >
+                      {({ ref, showColorPicker }) => (
+                        <div
+                          ref={ref}
+                          className={styles.legendColorSwatch}
+                          style={{ background: frameColors.icrf }}
+                          onClick={showColorPicker}
+                        />
+                      )}
+                    </ColorPicker>
                     <span className={styles.legendItemName}>ICRF Frame</span>
-                  </div>
-                )}
-                {expandedLegendItem === 'icrf' && (
-                  <div className={styles.legendColorPicker}>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Color picker here</div>
                   </div>
                 )}
               </div>
@@ -1565,24 +1581,23 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     
                     {trackedSat.sensors.map((sensor, idx) => {
                       const sensorColor = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
-                      const sensorKey = `${trackedSat.id}-${sensor.id}`;
-                      
                       return (
-                        <React.Fragment key={sensorKey}>
-                          <div className={styles.legendItem}>
-                            <div
-                              className={styles.legendColorSwatch}
-                              style={{ background: sensorColor }}
-                              onClick={() => setExpandedLegendItem(expandedLegendItem === sensorKey ? null : sensorKey)}
-                            />
-                            <span className={styles.legendItemName}>{sensor.name}</span>
-                          </div>
-                          {expandedLegendItem === sensorKey && (
-                            <div className={styles.legendColorPicker}>
-                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Color picker here</div>
-                            </div>
-                          )}
-                        </React.Fragment>
+                        <div key={sensor.id} className={styles.legendItem}>
+                          <ColorPicker
+                            color={sensorColor}
+                            onChange={(color) => _updateSensorColor(trackedSat.id, sensor.id, color)}
+                          >
+                            {({ ref, showColorPicker }) => (
+                              <div
+                                ref={ref}
+                                className={styles.legendColorSwatch}
+                                style={{ background: sensorColor }}
+                                onClick={showColorPicker}
+                              />
+                            )}
+                          </ColorPicker>
+                          <span className={styles.legendItemName}>{sensor.name}</span>
+                        </div>
                       );
                     })}
                   </div>
