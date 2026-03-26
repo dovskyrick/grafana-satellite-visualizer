@@ -149,6 +149,15 @@ function rawJsonToDataFrames(items: any[]): DataFrame[] {
     } as DataFrame;
   });
 }
+// Default reference-frame axis colors — edit here to change startup appearance
+const FRAME_COLORS_DEFAULTS = {
+  body: 'rgba(245, 245, 250, 0.9)',
+  lvlh: 'rgba(180, 180, 185, 0.7)',
+  itrf: 'rgba(120, 120, 130, 0.6)',
+  icrf: 'rgba(140, 170, 215, 0.6)',
+};
+type FrameColors = typeof FRAME_COLORS_DEFAULTS;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -193,11 +202,14 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   
   // Legend panel state
   const [isLegendCollapsed, setIsLegendCollapsed] = useState<boolean>(false);
-  const [frameColors, setFrameColors] = useState({
-    body: 'rgba(245, 245, 250, 0.9)',
-    lvlh: 'rgba(180, 180, 185, 0.7)',
-    itrf: 'rgba(120, 120, 130, 0.6)',
-    icrf: 'rgba(140, 170, 215, 0.6)',
+  const [frameColors, setFrameColors] = useState<FrameColors>(() => {
+    try {
+      const stored = localStorage.getItem('grafana_satelliteVisualizer_frameColors');
+      if (stored) {
+        return { ...FRAME_COLORS_DEFAULTS, ...JSON.parse(stored) };
+      }
+    } catch {}
+    return FRAME_COLORS_DEFAULTS;
   });
   
   // Hover tooltip state
@@ -483,6 +495,15 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       console.warn('Failed to load sensor colors from localStorage:', error);
     }
   }, []);
+
+  // Persist frame colors to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('grafana_satelliteVisualizer_frameColors', JSON.stringify(frameColors));
+    } catch (error) {
+      console.warn('Failed to save frame colors to localStorage:', error);
+    }
+  }, [frameColors]);
   
   // ─── View camera distances (metres from satellite) ───────────────────────────
   // Tweak these to control how far out the camera sits for each snap-to-view.
