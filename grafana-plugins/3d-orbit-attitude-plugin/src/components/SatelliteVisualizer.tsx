@@ -167,6 +167,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const styles = useStyles2(getStyles);
 
   const [isLoaded, setLoaded] = useState<boolean>(false);
+  // Guards Resium entity children from rendering before Cesium's _cesiumWidget is ready.
+  // Without this, SPA navigation (e.g. clicking Edit panel) causes a race where React
+  // renders entity children in the same pass as <Viewer>, before Cesium has initialized,
+  // triggering "can't access property 'scene', _cesiumWidget is undefined".
+  const [isViewerReady, setIsViewerReady] = useState<boolean>(false);
   const [viewerKey, setViewerKey] = useState<number>(0);
   const [isTracked, setIsTracked] = useState<boolean>(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
@@ -1126,8 +1131,17 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         ref={(ref) => {
           // Store ref for use in useEffect (imagery setup)
           viewerRef.current = ref;
-          
-          if (ref?.cesiumElement) {
+
+          if (!ref?.cesiumElement) {
+            // Viewer is unmounting or not yet ready — prevent entity children from rendering
+            setIsViewerReady(false);
+            return;
+          }
+
+          // Cesium Viewer is fully constructed; allow entity children to render
+          setIsViewerReady(true);
+
+          {
             const viewer = ref.cesiumElement;
             const controller = viewer.scene.screenSpaceCameraController;
             const camera = viewer.scene.camera;
@@ -1209,6 +1223,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         }}
       >
         {timestamp && <Clock currentTime={timestamp} />}
+
+        {/* Entity children are gated on isViewerReady to prevent Resium from accessing
+            Cesium's _cesiumWidget before the Viewer has fully initialized. Without this
+            guard, SPA navigation (e.g. clicking Edit panel) causes a race condition that
+            produces "can't access property 'scene', _cesiumWidget is undefined". */}
+        {isViewerReady && <>
         
         {/* Main Satellite Entities - Multiple satellites support */}
         {/* Main Satellite Entities - Hidden in Celestial Map mode */}
@@ -1486,6 +1506,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             <GroundStationRenderer key={gs.id} groundStation={gs} />
           ))
         }
+
+        </>} {/* end isViewerReady guard */}
       </Viewer>
 
           <div

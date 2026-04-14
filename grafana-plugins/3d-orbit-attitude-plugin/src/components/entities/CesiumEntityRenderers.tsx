@@ -260,6 +260,7 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
     if (!viewer) { return; }
 
     const updateScale = () => {
+      if (viewer.isDestroyed()) { return; }
       const satPos = satellite.position.getValue(viewer.clock.currentTime);
       if (satPos) {
         coneScaleRef.current = getScaledLength(50, viewer, satPos);
@@ -268,7 +269,11 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
 
     updateScale();
     viewer.scene.postRender.addEventListener(updateScale);
-    return () => { viewer.scene.postRender.removeEventListener(updateScale); };
+    return () => {
+      if (!viewer.isDestroyed()) {
+        viewer.scene.postRender.removeEventListener(updateScale);
+      }
+    };
   }, [satellite, viewerRef]);
 
   // Priority for color selection:
@@ -621,6 +626,7 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
     if (!viewer) { return; }
 
     const updateScale = () => {
+      if (viewer.isDestroyed()) { return; }
       const satPos = satellite.position.getValue(viewer.clock.currentTime);
       if (satPos) {
         vectorScaleRef.current = getScaledLength(80, viewer, satPos);
@@ -629,7 +635,11 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
 
     updateScale();
     viewer.scene.postRender.addEventListener(updateScale);
-    return () => { viewer.scene.postRender.removeEventListener(updateScale); };
+    return () => {
+      if (!viewer.isDestroyed()) {
+        viewer.scene.postRender.removeEventListener(updateScale);
+      }
+    };
   }, [satellite, viewerRef]);
 
   return (
