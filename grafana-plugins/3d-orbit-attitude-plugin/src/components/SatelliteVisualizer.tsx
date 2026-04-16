@@ -196,7 +196,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   
   // Camera view states - different per mode
   const [satelliteCameraView, setSatelliteCameraView] = useState<'nadir' | 'cross-track' | 'along-track' | 'fixed'>('nadir');
-  const [celestialCameraView, setCelestialCameraView] = useState<'sun' | 'lvlh-orbit' | 'star' | 'groundstation'>('sun');
+  const [celestialCameraView, setCelestialCameraView] = useState<'zoomed-in' | 'total-map'>('zoomed-in');
   const [earthCameraView, setEarthCameraView] = useState<'icrf' | 'itrf' | 'gcrf' | 'teme'>('icrf');
   
   // Reference axes visibility toggles (common to all modes)

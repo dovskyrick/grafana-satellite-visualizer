@@ -184,52 +184,28 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
               </>
             )}
             
-            {/* Celestial Map Mode - Celestial reference pointing */}
+            {/* Celestial Map Mode - Zoom level */}
             {selectedMode === 'celestial' && (
               <>
                 <div
-                  className={`${styles.dropdownItem} ${celestialCameraView === 'sun' ? 'active' : ''}`}
+                  className={`${styles.dropdownItem} ${celestialCameraView === 'zoomed-in' ? 'active' : ''}`}
                   onClick={() => {
-                    setCelestialCameraView('sun');
+                    setCelestialCameraView('zoomed-in');
                     setIsCameraDropdownOpen(false);
-                    // TODO: Implement sun pointing
                   }}
                 >
-                  <span className={styles.dropdownItemLabel}>☀️ Sun Pointing</span>
-                  <span className={styles.dropdownItemDescription}>Camera points toward sun</span>
+                  <span className={styles.dropdownItemLabel}>🔍 Zoomed In</span>
+                  <span className={styles.dropdownItemDescription}>Close-up celestial view</span>
                 </div>
                 <div
-                  className={`${styles.dropdownItem} ${celestialCameraView === 'lvlh-orbit' ? 'active' : ''}`}
+                  className={`${styles.dropdownItem} ${celestialCameraView === 'total-map' ? 'active' : ''}`}
                   onClick={() => {
-                    setCelestialCameraView('lvlh-orbit');
+                    setCelestialCameraView('total-map');
                     setIsCameraDropdownOpen(false);
-                    // TODO: Implement LVLH orbit direction pointing
                   }}
                 >
-                  <span className={styles.dropdownItemLabel}>🛰️ LVLH Orbit Direction</span>
-                  <span className={styles.dropdownItemDescription}>Aligned with orbit velocity</span>
-                </div>
-                <div
-                  className={`${styles.dropdownItem} ${celestialCameraView === 'star' ? 'active' : ''}`}
-                  onClick={() => {
-                    setCelestialCameraView('star');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement star pointing
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>⭐ Star Pointing</span>
-                  <span className={styles.dropdownItemDescription}>Fixed stellar reference</span>
-                </div>
-                <div
-                  className={`${styles.dropdownItem} ${celestialCameraView === 'groundstation' ? 'active' : ''}`}
-                  onClick={() => {
-                    setCelestialCameraView('groundstation');
-                    setIsCameraDropdownOpen(false);
-                    // TODO: Implement ground station pointing
-                  }}
-                >
-                  <span className={styles.dropdownItemLabel}>📡 Ground Station Pointing</span>
-                  <span className={styles.dropdownItemDescription}>Camera toward selected station</span>
+                  <span className={styles.dropdownItemLabel}>🌌 Total Map</span>
+                  <span className={styles.dropdownItemDescription}>Full celestial sphere view</span>
                 </div>
               </>
             )}
