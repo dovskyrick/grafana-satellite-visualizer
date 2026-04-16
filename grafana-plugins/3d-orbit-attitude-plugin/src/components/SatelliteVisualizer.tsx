@@ -1654,6 +1654,136 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             )}
           </div>
 
+          {/* Celestial Map — Total Map polar chart overlay */}
+          {selectedMode === 'celestial' && celestialCameraView === 'total-map' && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: '#000',
+                zIndex: 9,
+                pointerEvents: 'none',
+              }}
+            >
+              <svg
+                width="100%"
+                height="100%"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {/* Elevation rings: 0° (horizon), 30°, 60°, zenith dot */}
+                <circle cx="50" cy="50" r="40"  fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+                <circle cx="50" cy="50" r="26.7"  fill="none" stroke="rgba(255,255,255,0.3)"  strokeWidth="0.3" />
+                <circle cx="50" cy="50" r="13.3"  fill="none" stroke="rgba(255,255,255,0.3)"  strokeWidth="0.3" />
+                <circle cx="50" cy="50" r="0.8" fill="rgba(255,255,255,0.5)" />
+
+                {/* Azimuth radials — 6 lines at 30° spacing (N at top, clockwise) */}
+                {[0, 30, 60, 90, 120, 150].map((deg) => {
+                  const rad = (deg * Math.PI) / 180;
+                  const x1 = 50 + 40 * Math.sin(rad);
+                  const y1 = 50 - 40 * Math.cos(rad);
+                  const x2 = 50 - 40 * Math.sin(rad);
+                  const y2 = 50 + 40 * Math.cos(rad);
+                  return (
+                    <line key={deg}
+                      x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke="rgba(255,255,255,0.2)" strokeWidth="0.3"
+                    />
+                  );
+                })}
+
+                {/* Cardinal labels just outside horizon ring */}
+                <text x="50"   y="7.5"  textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="3.5">N</text>
+                <text x="92.5" y="51.5" textAnchor="start"  fill="rgba(255,255,255,0.7)" fontSize="3.5">E</text>
+                <text x="50"   y="94.5" textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="3.5">S</text>
+                <text x="7.5"  y="51.5" textAnchor="end"    fill="rgba(255,255,255,0.7)" fontSize="3.5">W</text>
+
+                {/* Elevation labels */}
+                <text x="51.5" y="37.8" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">30°</text>
+                <text x="51.5" y="24.5" textAnchor="start" fill="rgba(255,255,255,0.35)" fontSize="2.5">60°</text>
+
+                {/* Orbit tracks — sampled at 1-minute steps so arcs stay smooth regardless of data density */}
+                {(() => {
+                  const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
+                  if (!gs) { return null; }
+                  const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
+                  const R_HORIZON = 40;
+                  const STEP_SECONDS = 60; // fine enough for smooth polar arcs at any data density
+
+                  return satellites
+                    .filter(sat => !hiddenSatellites.has(sat.id))
+                    .map((sat, idx) => {
+                      const interval = sat.availability.get(0);
+                      if (!interval) { return null; }
+                      const duration = JulianDate.secondsDifference(interval.stop, interval.start);
+                      const numSteps = Math.ceil(duration / STEP_SECONDS);
+                      const hue = (idx * 47) % 360;
+                      const trackDots: React.JSX.Element[] = [];
+
+                      // Build SVG path: M to start each above-horizon segment, L to continue
+                      let pathD = '';
+                      let inSegment = false;
+                      for (let i = 0; i <= numSteps; i++) {
+                        const t = JulianDate.addSeconds(interval.start, i * STEP_SECONDS, new JulianDate());
+                        const satPos = sat.position.getValue(t);
+                        if (!satPos) { inSegment = false; continue; }
+                        const azel = computeAzEl(gsPos, satPos);
+                        if (!azel || azel.el < 0) { inSegment = false; continue; }
+                        const r = R_HORIZON * (90 - azel.el) / 90;
+                        const azRad = (azel.az * Math.PI) / 180;
+                        const x = (50 + r * Math.sin(azRad)).toFixed(2);
+                        const y = (50 - r * Math.cos(azRad)).toFixed(2);
+                        pathD += inSegment ? ` L${x} ${y}` : ` M${x} ${y}`;
+                        inSegment = true;
+                      }
+                      if (!pathD) { return null; }
+                      trackDots.push(
+                        <path
+                          key={`${sat.id}-track`}
+                          d={pathD}
+                          fill="none"
+                          stroke={`hsla(${hue},80%,65%,0.5)`}
+                          strokeWidth="0.4"
+                        />
+                      );
+                      return trackDots;
+                    });
+                })()}
+
+                {/* Satellite dots — only those above the horizon */}
+                {(() => {
+                  const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
+                  if (!gs || !gsPovClockTime) { return null; }
+                  const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
+
+                  return satellites
+                    .filter(sat => !hiddenSatellites.has(sat.id))
+                    .map((sat, idx) => {
+                      const satPos = sat.position.getValue(gsPovClockTime);
+                      if (!satPos) { return null; }
+                      const azel = computeAzEl(gsPos, satPos);
+                      if (!azel || azel.el < 0) { return null; }
+
+                      const R_HORIZON = 40;
+                      const r = R_HORIZON * (90 - azel.el) / 90;
+                      const azRad = (azel.az * Math.PI) / 180;
+                      const x = 50 + r * Math.sin(azRad);
+                      const y = 50 - r * Math.cos(azRad);
+                      const hue = (idx * 47) % 360;
+                      const color = `hsl(${hue},80%,65%)`;
+
+                      return (
+                        <g key={sat.id}>
+                          <circle cx={x} cy={y} r="1.2" fill={color} />
+                          <text x={x + 1.8} y={y - 1.2} fontSize="2.8" fill={color}>{sat.name}</text>
+                        </g>
+                      );
+                    });
+                })()}
+              </svg>
+            </div>
+          )}
+
           {/* Ground Station POV — polar sky chart overlay (Cesium keeps rendering underneath) */}
           {selectedMode === 'groundstation' && (
             <div
