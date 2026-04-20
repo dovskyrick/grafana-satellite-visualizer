@@ -85,6 +85,7 @@ import {
   Quaternion,
   SampledProperty,
   CallbackProperty,
+  Simon1994PlanetaryPositions,
 } from 'cesium';
 
 import 'cesium/Build/Cesium/Widgets/widgets.css';
@@ -177,7 +178,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   const [timestamp, setTimestamp] = useState<JulianDate | null>(null);
-  const [gsPovClockTime, setGsPovClockTime] = useState<JulianDate | null>(null);
+  const [overlayClockTime, setOverlayClockTime] = useState<JulianDate | null>(null);
   const [satellites, setSatellites] = useState<ParsedSatellite[]>([]);
   const [groundStations, setGroundStations] = useState<GroundStation[]>([]);
   const [trackedSatelliteId, setTrackedSatelliteId] = useState<string | null>(null);
@@ -756,18 +757,21 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackedGroundStationId]);
 
-  // Drive SVG sky chart updates from the live Cesium clock (only in GS POV mode)
+  // Drive SVG overlay updates via setInterval — fully independent of Cesium's render loop.
+  // setInterval cannot be throttled by canvas visibility or trackedEntity camera flies.
+  // 100 ms (10 fps) is sufficient for SVG overlays.
+  // Active for GS POV polar plot and Celestial Map → Total Map.
   useEffect(() => {
-    if (selectedMode !== 'groundstation') { setGsPovClockTime(null); return; }
-    let rafId: number;
-    const tick = () => {
+    const isOverlayActive =
+      selectedMode === 'groundstation' ||
+      (selectedMode === 'celestial' && celestialCameraView === 'total-map');
+    if (!isOverlayActive || !isViewerReady) { setOverlayClockTime(null); return; }
+    const id = setInterval(() => {
       const viewer = viewerRef.current?.cesiumElement;
-      if (viewer) { setGsPovClockTime(JulianDate.clone(viewer.clock.currentTime)); }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [selectedMode, viewerRef]);
+      if (viewer) { setOverlayClockTime(JulianDate.clone(viewer.clock.currentTime)); }
+    }, 100); // 10 fps — sufficient for SVG overlay, avoids React render overload
+    return () => clearInterval(id);
+  }, [selectedMode, celestialCameraView, isViewerReady, viewerRef]);
 
   // Mutual exclusion: turning on LoS turns off FOV Footprint, and vice versa
   useEffect(() => {
@@ -1753,13 +1757,13 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 {/* Satellite dots — only those above the horizon */}
                 {(() => {
                   const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
-                  if (!gs || !gsPovClockTime) { return null; }
+                  if (!gs || !overlayClockTime) { return null; }
                   const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
 
                   return satellites
                     .filter(sat => !hiddenSatellites.has(sat.id))
                     .map((sat, idx) => {
-                      const satPos = sat.position.getValue(gsPovClockTime);
+                      const satPos = sat.position.getValue(overlayClockTime);
                       if (!satPos) { return null; }
                       const azel = computeAzEl(gsPos, satPos);
                       if (!azel || azel.el < 0) { return null; }
@@ -1779,6 +1783,40 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                         </g>
                       );
                     });
+                })()}
+
+                {/* Sun — same computeAzEl logic as GS POV, with satellite as observer */}
+                {(() => {
+                  if (!overlayClockTime) { return null; }
+                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+                  if (!trackedSat) { return null; }
+                  const satPos = trackedSat.position.getValue(overlayClockTime);
+                  if (!satPos) { return null; }
+
+                  const sunECI = Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(
+                    overlayClockTime, new Cartesian3()
+                  );
+                  const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
+                  const sunECEF = icrfToFixed
+                    ? Matrix3.multiplyByVector(icrfToFixed, sunECI, new Cartesian3())
+                    : sunECI;
+
+                  const azel = computeAzEl(satPos, sunECEF);
+                  if (!azel) { return null; }
+
+                  const R_HORIZON = 40;
+                  const r = R_HORIZON * (90 - azel.el) / 90;
+                  const azRad = (azel.az * Math.PI) / 180;
+                  const x = 50 + r * Math.sin(azRad);
+                  const y = 50 - r * Math.cos(azRad);
+
+                  return (
+                    <g key="sun">
+                      <circle cx={x} cy={y} r="2.2" fill="#FFD700" />
+                      <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
+                      <text x={x + 3.2} y={y + 1} fontSize="2.8" fill="#FFD700">☉</text>
+                    </g>
+                  );
                 })()}
               </svg>
             </div>
@@ -1883,13 +1921,13 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 {/* Satellite dots — only those above the horizon */}
                 {(() => {
                   const gs = groundStations.find(g => g.id === trackedGroundStationId) ?? groundStations[0];
-                  if (!gs || !gsPovClockTime) { return null; }
+                  if (!gs || !overlayClockTime) { return null; }
                   const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
 
                   return satellites
                     .filter(sat => !hiddenSatellites.has(sat.id))
                     .map((sat, idx) => {
-                      const satPos = sat.position.getValue(gsPovClockTime);
+                      const satPos = sat.position.getValue(overlayClockTime);
                       if (!satPos) { return null; }
                       const azel = computeAzEl(gsPos, satPos);
                       if (!azel || azel.el < 0) { return null; }
