@@ -1669,13 +1669,15 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 pointerEvents: 'none',
               }}
             >
+              {/* viewBox="0 0 360 180": az 0–360° → x, el +90°→−90° → y 0–180.
+                  preserveAspectRatio="none" fills the full panel rectangle. */}
               <svg
                 width="100%"
                 height="100%"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="xMidYMid meet"
+                viewBox="0 0 360 180"
+                preserveAspectRatio="none"
               >
-                {/* Sun — same computeAzEl logic as GS POV, with satellite as observer */}
+                {/* Sun — equirectangular projection across the full panel */}
                 {(() => {
                   if (!overlayClockTime) { return null; }
                   const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
@@ -1694,11 +1696,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   const azel = computeAzEl(satPos, sunECEF);
                   if (!azel) { return null; }
 
-                  const R_HORIZON = 40;
-                  const r = R_HORIZON * (90 - azel.el) / 90;
-                  const azRad = (azel.az * Math.PI) / 180;
-                  const x = 50 + r * Math.sin(azRad);
-                  const y = 50 - r * Math.cos(azRad);
+                  // Equirectangular: az 0–360° → x 0–360, el +90–(−90)° → y 0–180
+                  const x = azel.az;
+                  const y = 90 - azel.el;
 
                   return (
                     <g key="sun">
