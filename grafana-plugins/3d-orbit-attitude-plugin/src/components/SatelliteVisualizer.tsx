@@ -61,7 +61,7 @@ import { useStyles2, ColorPicker } from '@grafana/ui';
 import { Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { getStyles } from './styles/SatelliteVisualizerStyles';
 import { computeVisibilityLoS } from 'utils/projections';
-import { generateFOVRing, cutRingAtSeam, fragmentsToSvgPath } from 'utils/totalMapProjection';
+import { generateFOVRing, filledRingToSvgPath } from 'utils/totalMapProjection';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
 
@@ -1710,7 +1710,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   );
                 })()}
 
-                {/* Sensor FOV rings — Step 2: stroke outline, seam-cut */}
+                {/* Sensor FOV rings — Step 3: filled + seam-cut + pole corners */}
                 {(() => {
                   if (!overlayClockTime) { return null; }
                   const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
@@ -1721,19 +1721,18 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   if (!satPos || !satOrientation) { return null; }
 
                   return trackedSat.sensors.map((sensor, idx) => {
-                    const stroke = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
+                    const color = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
                     const ring = generateFOVRing(satPos, satOrientation, sensor);
-                    const fragments = cutRingAtSeam(ring);
-                    const d = fragmentsToSvgPath(fragments);
+                    const d = filledRingToSvgPath(ring);
                     if (!d) { return null; }
                     return (
                       <path
                         key={sensor.id}
                         d={d}
-                        fill="none"
-                        stroke={stroke}
+                        fill={color}
+                        fillOpacity={0.18}
+                        stroke={color}
                         strokeWidth="0.8"
-                        opacity="0.85"
                       />
                     );
                   });

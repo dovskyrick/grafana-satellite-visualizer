@@ -277,3 +277,109 @@ export function fragmentsToSvgPath(fragments: AzEl[][]): string {
     })
     .join(' ');
 }
+
+// ─── Step 3: fill, winding normalisation, border-following ───────────────────
+
+/**
+ * Signed area of an az/el polygon in SVG map coordinates
+ * (x = az 0–360, y = 90 − el, so y increases downward).
+ *
+ * Positive area  → polygon winds clockwise in SVG → interior fills correctly.
+ * Zero / negative → polygon is degenerate or wound counter-clockwise and needs
+ *                   correction before fill is applied.
+ */
+function signedArea(points: AzEl[]): number {
+  const n = points.length;
+  if (n < 3) { return 0; }
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    // Shoelace in (az, 90−el) space.
+    sum += a.az * (90 - b.el) - b.az * (90 - a.el);
+  }
+  return sum / 2;
+}
+
+/**
+ * Ensure the ring winds clockwise in SVG map coordinates (positive signed area)
+ * so that seam-cut fragments also wind clockwise and fill their interiors.
+ * Called on the raw ring BEFORE seam cutting.
+ */
+function normalizeWinding(points: AzEl[]): AzEl[] {
+  return signedArea(points) < 0 ? [...points].reverse() : points;
+}
+
+/**
+ * Inject border corner waypoints into a fragment whose signed area is ≤ 0.
+ *
+ * This occurs when the FOV ring projects to a near-horizontal band in map
+ * coordinates — the cone axis is pointing close to the zenith or nadir, so
+ * all ring points share approximately the same elevation.  The SVG Z closure
+ * runs along that horizontal band and encloses zero area.
+ *
+ * Fix: append the two pole-side corners (top-right + top-left, or
+ * bottom-right + bottom-left) so Z closes through those corners instead,
+ * forming a rectangle that correctly fills the pole region.
+ *
+ * The corner order follows the traversal direction of the fragment so the path
+ * stays convex and does not self-intersect.
+ */
+function injectPoleCorners(fragment: AzEl[]): AzEl[] {
+  const n = fragment.length;
+  if (n < 3) { return fragment; } // Degenerate line segment — leave as-is.
+
+  const firstAz = fragment[0].az;
+  const lastAz  = fragment[n - 1].az;
+
+  // Guard 1 — must span the FULL map width: one end ≈ az=0, other ≈ az=360.
+  // Two disconnected fragments from a normal left-right seam crossing each
+  // start and end on the SAME seam side and must never receive corners.
+  const spansFullWidth =
+    (firstAz < 0.5 && lastAz > 359.5) ||
+    (firstAz > 359.5 && lastAz < 0.5);
+  if (!spansFullWidth) { return fragment; }
+
+  // Guard 2 — area must be essentially zero (a horizontal band, not a proper
+  // 2-D polygon that already fills its interior correctly).
+  if (signedArea(fragment) > 1e-6) { return fragment; }
+
+  // Which pole: average map-y (y = 90 − el).
+  const avgY = fragment.reduce((s, p) => s + (90 - p.el), 0) / n;
+  const poleEl = avgY <= 90 ? 90 : -90; // el=90 ↔ y=0 zenith, el=−90 ↔ y=180 nadir
+
+  // Inject two corners so Z travels vertically to the pole edge and then
+  // horizontally across, enclosing the correct pole-side region.
+  if (firstAz < 0.5) {
+    // First at left edge (az≈0), last at right edge (az≈360).
+    return [...fragment, { az: 360, el: poleEl }, { az: 0, el: poleEl }];
+  } else {
+    // First at right edge (az≈360), last at left edge (az≈0).
+    return [...fragment, { az: 0, el: poleEl }, { az: 360, el: poleEl }];
+  }
+}
+
+/**
+ * Full pipeline for a filled FOV ring in the Total Map equirectangular view:
+ *
+ *   1. Normalise winding — ensure CW in SVG (positive signed area) so the
+ *      interior fills correctly for all FOV orientations.
+ *   2. Cut at map seams — split at the 0°/360° azimuth seam and at
+ *      zenith / nadir singularities.
+ *   3. Inject border corners — fix any degenerate (near-zero-area) fragment
+ *      that results from a cone pointing close to a pole.
+ *   4. Serialise — emit a single SVG path d string (M … Z [M … Z …]).
+ *
+ * The returned string is intended for a <path> element with both fill and
+ * stroke.  Use fillOpacity for a semi-transparent fill.
+ */
+export function filledRingToSvgPath(points: AzEl[]): string {
+  const normalised = normalizeWinding(points);
+  const fragments  = cutRingAtSeam(normalised);
+  // Drop degenerate 2-point slivers (seam-edge artefacts with no fill area)
+  // before pole-corner injection so they cannot be mistaken for horizontal bands.
+  const fixed = fragments
+    .filter(f => f.length >= 3)
+    .map(injectPoleCorners);
+  return fragmentsToSvgPath(fixed);
+}
