@@ -61,7 +61,7 @@ import { useStyles2, ColorPicker } from '@grafana/ui';
 import { Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { getStyles } from './styles/SatelliteVisualizerStyles';
 import { computeVisibilityLoS } from 'utils/projections';
-import { generateFOVRing, ringToSvgPath } from 'utils/totalMapProjection';
+import { generateFOVRing, cutRingAtSeam, fragmentsToSvgPath } from 'utils/totalMapProjection';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
 
@@ -1710,7 +1710,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   );
                 })()}
 
-                {/* Sensor FOV rings — Step 1: stroke outline, no seam handling */}
+                {/* Sensor FOV rings — Step 2: stroke outline, seam-cut */}
                 {(() => {
                   if (!overlayClockTime) { return null; }
                   const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
@@ -1723,7 +1723,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   return trackedSat.sensors.map((sensor, idx) => {
                     const stroke = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
                     const ring = generateFOVRing(satPos, satOrientation, sensor);
-                    const d = ringToSvgPath(ring);
+                    const fragments = cutRingAtSeam(ring);
+                    const d = fragmentsToSvgPath(fragments);
                     if (!d) { return null; }
                     return (
                       <path
