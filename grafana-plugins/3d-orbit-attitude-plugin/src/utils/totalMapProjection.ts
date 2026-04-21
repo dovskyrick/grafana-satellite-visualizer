@@ -332,17 +332,26 @@ function injectPoleCorners(fragment: AzEl[]): AzEl[] {
   const firstAz = fragment[0].az;
   const lastAz  = fragment[n - 1].az;
 
-  // Guard 1 — must span the FULL map width: one end ≈ az=0, other ≈ az=360.
-  // Two disconnected fragments from a normal left-right seam crossing each
-  // start and end on the SAME seam side and must never receive corners.
+  // One guard is both necessary and sufficient: the fragment must span the
+  // FULL map width — one end ≈ az=0, the other ≈ az=360.
+  //
+  // This is the only case that requires injection.  It arises when there is
+  // exactly ONE left-right seam crossing, meaning the FOV cone axis is near
+  // the zenith or nadir and the ring laps the entire azimuth range.  The SVG
+  // Z closure then runs along the wrong side of the ring (the nadir side for
+  // a zenith-pointing cone), so the corners must be injected to close it
+  // through the pole instead.
+  //
+  // Two disconnected fragments from a NORMAL left-right crossing each start
+  // and end on the SAME seam side, so spansFullWidth is false for both.
+  //
+  // NOTE: do NOT add an area check here.  At t=0 the cone axis may be exactly
+  // at the zenith (area=0); a moment later the satellite has rotated and the
+  // ring has tiny but non-zero area — the corners must still be injected.
   const spansFullWidth =
     (firstAz < 0.5 && lastAz > 359.5) ||
     (firstAz > 359.5 && lastAz < 0.5);
   if (!spansFullWidth) { return fragment; }
-
-  // Guard 2 — area must be essentially zero (a horizontal band, not a proper
-  // 2-D polygon that already fills its interior correctly).
-  if (signedArea(fragment) > 1e-6) { return fragment; }
 
   // Which pole: average map-y (y = 90 − el).
   const avgY = fragment.reduce((s, p) => s + (90 - p.el), 0) / n;
