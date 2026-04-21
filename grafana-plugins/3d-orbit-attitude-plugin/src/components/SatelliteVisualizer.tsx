@@ -61,6 +61,7 @@ import { useStyles2, ColorPicker } from '@grafana/ui';
 import { Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { getStyles } from './styles/SatelliteVisualizerStyles';
 import { computeVisibilityLoS } from 'utils/projections';
+import { generateFOVRing, ringToSvgPath } from 'utils/totalMapProjection';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
 
@@ -1707,6 +1708,34 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       <text x={x + 3.2} y={y + 1} fontSize="2.8" fill="#FFD700">☉</text>
                     </g>
                   );
+                })()}
+
+                {/* Sensor FOV rings — Step 1: stroke outline, no seam handling */}
+                {(() => {
+                  if (!overlayClockTime) { return null; }
+                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+                  if (!trackedSat || trackedSat.sensors.length === 0) { return null; }
+
+                  const satPos = trackedSat.position.getValue(overlayClockTime);
+                  const satOrientation = trackedSat.orientation.getValue(overlayClockTime);
+                  if (!satPos || !satOrientation) { return null; }
+
+                  return trackedSat.sensors.map((sensor, idx) => {
+                    const stroke = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
+                    const ring = generateFOVRing(satPos, satOrientation, sensor);
+                    const d = ringToSvgPath(ring);
+                    if (!d) { return null; }
+                    return (
+                      <path
+                        key={sensor.id}
+                        d={d}
+                        fill="none"
+                        stroke={stroke}
+                        strokeWidth="0.8"
+                        opacity="0.85"
+                      />
+                    );
+                  });
                 })()}
               </svg>
             </div>
