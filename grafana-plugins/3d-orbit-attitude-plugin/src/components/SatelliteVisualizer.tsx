@@ -122,6 +122,30 @@ function computeAzEl(
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Clamp a label position so it stays inside the Total Map SVG viewBox (0 0 360 180).
+ * charW ≈ fontSize × 0.55 gives a rough per-character width estimate.
+ * anchor "middle" offsets by half the estimated width; "start" offsets by the full width.
+ */
+function clampLabel(
+  x: number,
+  y: number,
+  text: string,
+  fontSize: number,
+  anchor: 'start' | 'middle' = 'start'
+): { x: number; y: number } {
+  const W = 360, H = 180, PAD = 2;
+  const textW = fontSize * 0.55 * text.length;
+  const halfW = textW / 2;
+  const minX = anchor === 'middle' ? PAD + halfW : PAD;
+  const maxX = anchor === 'middle' ? W - PAD - halfW : W - PAD - textW;
+  return {
+    x: Math.min(Math.max(x, minX), maxX),
+    y: Math.min(Math.max(y, PAD + fontSize), H - PAD),
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── Ground Station POV camera settings ──────────────────────────────────────
 // Tweak GS_POV_FOV_DEG to change the field of view when in Ground Station mode.
 // 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
@@ -1701,11 +1725,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   const x = azel.az;
                   const y = 90 - azel.el;
 
+                  const sunLabel = clampLabel(x + 4.5, y - 1, 'Sun', 4.8);
                   return (
                     <g key="sun">
                       <circle cx={x} cy={y} r="2.2" fill="#FFD700" />
                       <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
-                      <text x={x + 4.5} y={y - 1} fontSize="4.8" fill="#FFD700" opacity="0.9">Sun</text>
+                      <text x={sunLabel.x} y={sunLabel.y} fontSize="4.8" fill="#FFD700" opacity="0.9">Sun</text>
                     </g>
                   );
                 })()}
@@ -1724,6 +1749,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   // Earth disk is always near nadir (y ≈ 180), use ring centroid for x.
                   const centerX = ring.reduce((s, p) => s + p.az, 0) / ring.length;
                   const centerY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+                  const earthLabel = clampLabel(centerX, centerY, 'Earth', 4.8, 'middle');
                   return (
                     <g key="earth-disk">
                       <path
@@ -1735,8 +1761,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                         strokeOpacity={0.5}
                       />
                       <text
-                        x={centerX}
-                        y={centerY}
+                        x={earthLabel.x}
+                        y={earthLabel.y}
                         fontSize="4.8"
                         fill="#4488FF"
                         opacity="0.7"
@@ -1767,11 +1793,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
                     const x = azel.az;
                     const y = 90 - azel.el; // el is negative so y > 90, inside the Earth disk
+                    const gsLabel = clampLabel(x + 3.5, y + 1.5, gs.name, 4.8);
                     return (
                       <g key={gs.id}>
                         <circle cx={x} cy={y} r="1.8" fill="#FF8800" opacity="0.9" />
                         <circle cx={x} cy={y} r="3.2" fill="none" stroke="#FF8800" strokeWidth="0.35" opacity="0.5" />
-                        <text x={x + 3.5} y={y + 1.5} fontSize="4.8" fill="#FF8800" opacity="0.85">{gs.name}</text>
+                        <text x={gsLabel.x} y={gsLabel.y} fontSize="4.8" fill="#FF8800" opacity="0.85">{gs.name}</text>
                       </g>
                     );
                   });
@@ -1800,8 +1827,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     const shiftedAz = maxAz - minAz > 180
                       ? azVals.map(a => a < 180 ? a + 360 : a)
                       : azVals;
-                    const labelX = (shiftedAz.reduce((s, a) => s + a, 0) / shiftedAz.length) % 360;
-                    const labelY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+                    const rawLabelX = (shiftedAz.reduce((s, a) => s + a, 0) / shiftedAz.length) % 360;
+                    const rawLabelY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+                    const fovLabel = clampLabel(rawLabelX, rawLabelY, sensor.name, 4.8, 'middle');
 
                     return (
                       <g key={sensor.id}>
@@ -1813,8 +1841,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                           strokeWidth="0.8"
                         />
                         <text
-                          x={labelX}
-                          y={labelY}
+                          x={fovLabel.x}
+                          y={fovLabel.y}
                           fontSize="4.8"
                           fill={color}
                           opacity="0.9"
