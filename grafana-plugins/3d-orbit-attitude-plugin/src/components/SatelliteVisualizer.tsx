@@ -1733,6 +1733,37 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   );
                 })()}
 
+                {/* Ground stations in line-of-sight of the tracked satellite */}
+                {(() => {
+                  if (!overlayClockTime || groundStations.length === 0) { return null; }
+                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+                  if (!trackedSat) { return null; }
+                  const satPos = trackedSat.position.getValue(overlayClockTime);
+                  if (!satPos) { return null; }
+
+                  return groundStations.map(gs => {
+                    const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
+
+                    // Visibility: satellite must be above the ground station's horizon
+                    const azelFromGs = computeAzEl(gsPos, satPos);
+                    if (!azelFromGs || azelFromGs.el < 0) { return null; }
+
+                    // Map position: az/el of the ground station from the satellite's ENU frame
+                    const azel = computeAzEl(satPos, gsPos);
+                    if (!azel) { return null; }
+
+                    const x = azel.az;
+                    const y = 90 - azel.el; // el is negative so y > 90, inside the Earth disk
+                    return (
+                      <g key={gs.id}>
+                        <circle cx={x} cy={y} r="1.8" fill="#44FF88" opacity="0.9" />
+                        <circle cx={x} cy={y} r="3.2" fill="none" stroke="#44FF88" strokeWidth="0.35" opacity="0.5" />
+                        <text x={x + 2.5} y={y + 1} fontSize="2.4" fill="#44FF88" opacity="0.85">{gs.name}</text>
+                      </g>
+                    );
+                  });
+                })()}
+
                 {/* Sensor FOV rings — Step 3: filled + seam-cut + pole corners */}
                 {(() => {
                   if (!overlayClockTime) { return null; }
