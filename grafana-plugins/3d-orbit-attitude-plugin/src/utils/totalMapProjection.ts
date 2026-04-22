@@ -369,6 +369,85 @@ function injectPoleCorners(fragment: AzEl[]): AzEl[] {
 }
 
 /**
+ * Generate N az/el points tracing the rim of the Earth's visible disk as seen
+ * from the satellite.
+ *
+ * The cone axis is the nadir direction (Earth centre → satellite, negated).
+ * In ECEF the Earth centre is the origin, so nadir = −normalize(satPos).
+ *
+ * The angular radius of the visible disk (half-angle of the tangent cone) is:
+ *   halfAngle = arcsin(R_earth / |satPos|)
+ *
+ * For a 500 km LEO orbit this is ≈ 67.6°; for GEO ≈ 8.7°.  It is always
+ * strictly less than 90°, so the disk never exceeds a hemisphere and the
+ * existing seam-cut + corner-injection pipeline handles it without changes.
+ *
+ * The generated ring feeds directly into filledRingToSvgPath.
+ *
+ * @param satPos  Satellite ECEF position at the current clock time.
+ * @param N       Number of samples around the rim (default 64 for a smooth arc).
+ * @returns       Array of AzEl points in rim order, or [] if satPos is inside Earth.
+ */
+export function generateEarthDiskRing(satPos: Cartesian3, N = 64): AzEl[] {
+  const dist = Cartesian3.magnitude(satPos);
+  const R = Ellipsoid.WGS84.maximumRadius; // ≈ 6 378 137 m
+  if (dist <= R) { return []; } // satellite inside Earth — should never happen
+
+  // Cone axis: from satellite toward Earth centre = −normalize(satPos).
+  const nadirAxis = Cartesian3.normalize(
+    Cartesian3.negate(satPos, new Cartesian3()),
+    new Cartesian3()
+  );
+
+  // Angular radius of the visible disk.
+  const halfAngleRad = Math.asin(R / dist);
+  const cosHalf = Math.cos(halfAngleRad);
+  const sinHalf = Math.sin(halfAngleRad);
+
+  // Build two perpendicular vectors to the nadir axis (same fallback as FOV).
+  let perp1 = Cartesian3.cross(nadirAxis, Cartesian3.UNIT_Z, new Cartesian3());
+  if (Cartesian3.magnitude(perp1) < 0.01) {
+    Cartesian3.cross(nadirAxis, Cartesian3.UNIT_X, perp1);
+  }
+  Cartesian3.normalize(perp1, perp1);
+  const perp2 = Cartesian3.normalize(
+    Cartesian3.cross(nadirAxis, perp1, new Cartesian3()), new Cartesian3()
+  );
+
+  const CELESTIAL_DIST = 1e12;
+  const points: AzEl[] = [];
+
+  for (let i = 0; i < N; i++) {
+    const angle = (i / N) * 2 * Math.PI;
+
+    const circleDir = Cartesian3.add(
+      Cartesian3.multiplyByScalar(perp1, Math.cos(angle) * sinHalf, new Cartesian3()),
+      Cartesian3.multiplyByScalar(perp2, Math.sin(angle) * sinHalf, new Cartesian3()),
+      new Cartesian3()
+    );
+    const rayDir = Cartesian3.normalize(
+      Cartesian3.add(
+        Cartesian3.multiplyByScalar(nadirAxis, cosHalf, new Cartesian3()),
+        circleDir,
+        new Cartesian3()
+      ),
+      new Cartesian3()
+    );
+
+    const farPoint = Cartesian3.add(
+      satPos,
+      Cartesian3.multiplyByScalar(rayDir, CELESTIAL_DIST, new Cartesian3()),
+      new Cartesian3()
+    );
+
+    const azel = ecefDirToAzEl(satPos, farPoint);
+    if (azel) { points.push(azel); }
+  }
+
+  return points;
+}
+
+/**
  * Full pipeline for a filled FOV ring in the Total Map equirectangular view:
  *
  *   1. Normalise winding — ensure CW in SVG (positive signed area) so the

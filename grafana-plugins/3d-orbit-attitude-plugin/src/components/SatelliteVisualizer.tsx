@@ -61,7 +61,7 @@ import { useStyles2, ColorPicker } from '@grafana/ui';
 import { Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { getStyles } from './styles/SatelliteVisualizerStyles';
 import { computeVisibilityLoS } from 'utils/projections';
-import { generateFOVRing, filledRingToSvgPath } from 'utils/totalMapProjection';
+import { generateFOVRing, generateEarthDiskRing, filledRingToSvgPath } from 'utils/totalMapProjection';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
 
@@ -1707,6 +1707,29 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
                       <text x={x + 3.2} y={y + 1} fontSize="2.8" fill="#FFD700">☉</text>
                     </g>
+                  );
+                })()}
+
+                {/* Earth disk — visible hemisphere boundary from satellite */}
+                {(() => {
+                  if (!overlayClockTime) { return null; }
+                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+                  if (!trackedSat) { return null; }
+                  const satPos = trackedSat.position.getValue(overlayClockTime);
+                  if (!satPos) { return null; }
+                  const ring = generateEarthDiskRing(satPos);
+                  const d = filledRingToSvgPath(ring);
+                  if (!d) { return null; }
+                  return (
+                    <path
+                      key="earth-disk"
+                      d={d}
+                      fill="#4488FF"
+                      fillOpacity={0.12}
+                      stroke="#4488FF"
+                      strokeWidth="0.6"
+                      strokeOpacity={0.5}
+                    />
                   );
                 })()}
 
