@@ -1705,7 +1705,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     <g key="sun">
                       <circle cx={x} cy={y} r="2.2" fill="#FFD700" />
                       <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
-                      <text x={x + 3.2} y={y + 1} fontSize="2.8" fill="#FFD700">☉</text>
+                      <text x={x + 4.5} y={y - 1} fontSize="4.8" fill="#FFD700" opacity="0.9">Sun</text>
                     </g>
                   );
                 })()}
@@ -1720,16 +1720,29 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   const ring = generateEarthDiskRing(satPos);
                   const d = filledRingToSvgPath(ring);
                   if (!d) { return null; }
+                  // Average the ring points for a centroid label position.
+                  // Earth disk is always near nadir (y ≈ 180), use ring centroid for x.
+                  const centerX = ring.reduce((s, p) => s + p.az, 0) / ring.length;
+                  const centerY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
                   return (
-                    <path
-                      key="earth-disk"
-                      d={d}
-                      fill="#4488FF"
-                      fillOpacity={0.12}
-                      stroke="#4488FF"
-                      strokeWidth="0.6"
-                      strokeOpacity={0.5}
-                    />
+                    <g key="earth-disk">
+                      <path
+                        d={d}
+                        fill="#4488FF"
+                        fillOpacity={0.12}
+                        stroke="#4488FF"
+                        strokeWidth="0.6"
+                        strokeOpacity={0.5}
+                      />
+                      <text
+                        x={centerX}
+                        y={centerY}
+                        fontSize="4.8"
+                        fill="#4488FF"
+                        opacity="0.7"
+                        textAnchor="middle"
+                      >Earth</text>
+                    </g>
                   );
                 })()}
 
@@ -1758,7 +1771,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       <g key={gs.id}>
                         <circle cx={x} cy={y} r="1.8" fill="#44FF88" opacity="0.9" />
                         <circle cx={x} cy={y} r="3.2" fill="none" stroke="#44FF88" strokeWidth="0.35" opacity="0.5" />
-                        <text x={x + 2.5} y={y + 1} fontSize="2.4" fill="#44FF88" opacity="0.85">{gs.name}</text>
+                        <text x={x + 3.5} y={y + 1.5} fontSize="4.8" fill="#44FF88" opacity="0.85">{gs.name}</text>
                       </g>
                     );
                   });
@@ -1779,15 +1792,35 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     const ring = generateFOVRing(satPos, satOrientation, sensor);
                     const d = filledRingToSvgPath(ring);
                     if (!d) { return null; }
+
+                    // Seam-aware centroid: shift az values crossing the 0/360 seam before averaging.
+                    const azVals = ring.map(p => p.az);
+                    const maxAz = Math.max(...azVals);
+                    const minAz = Math.min(...azVals);
+                    const shiftedAz = maxAz - minAz > 180
+                      ? azVals.map(a => a < 180 ? a + 360 : a)
+                      : azVals;
+                    const labelX = (shiftedAz.reduce((s, a) => s + a, 0) / shiftedAz.length) % 360;
+                    const labelY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+
                     return (
-                      <path
-                        key={sensor.id}
-                        d={d}
-                        fill={color}
-                        fillOpacity={0.18}
-                        stroke={color}
-                        strokeWidth="0.8"
-                      />
+                      <g key={sensor.id}>
+                        <path
+                          d={d}
+                          fill={color}
+                          fillOpacity={0.18}
+                          stroke={color}
+                          strokeWidth="0.8"
+                        />
+                        <text
+                          x={labelX}
+                          y={labelY}
+                          fontSize="4.8"
+                          fill={color}
+                          opacity="0.9"
+                          textAnchor="middle"
+                        >{sensor.name}</text>
+                      </g>
                     );
                   });
                 })()}
