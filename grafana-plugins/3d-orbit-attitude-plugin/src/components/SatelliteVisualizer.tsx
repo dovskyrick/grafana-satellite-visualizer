@@ -61,7 +61,7 @@ import { useStyles2, ColorPicker } from '@grafana/ui';
 import { Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { getStyles } from './styles/SatelliteVisualizerStyles';
 import { computeVisibilityLoS } from 'utils/projections';
-import { generateFOVRing, generateEarthDiskRing, filledRingToSvgPath } from 'utils/totalMapProjection';
+import { generateFOVRing, generateEarthDiskRing, generateDirectionDiskRing, filledRingToSvgPath } from 'utils/totalMapProjection';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
 
@@ -1731,6 +1731,45 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                       <circle cx={x} cy={y} r="2.2" fill="#FFD700" />
                       <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
                       <text x={sunLabel.x} y={sunLabel.y} fontSize="4.8" fill="#FFD700" opacity="0.9">Sun</text>
+                    </g>
+                  );
+                })()}
+
+                {/* Sun exclusion zone — 15° keep-out cone around the Sun */}
+                {(() => {
+                  if (!overlayClockTime) { return null; }
+                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+                  if (!trackedSat) { return null; }
+                  const satPos = trackedSat.position.getValue(overlayClockTime);
+                  if (!satPos) { return null; }
+
+                  const sunECI = Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(
+                    overlayClockTime, new Cartesian3()
+                  );
+                  const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
+                  const sunECEF = icrfToFixed
+                    ? Matrix3.multiplyByVector(icrfToFixed, sunECI, new Cartesian3())
+                    : sunECI;
+
+                  const ring = generateDirectionDiskRing(satPos, sunECEF, 15);
+                  const d = filledRingToSvgPath(ring);
+                  if (!d) { return null; }
+
+                  const centerX = ring.reduce((s, p) => s + p.az, 0) / ring.length;
+                  const centerY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+                  const exLabel = clampLabel(centerX, centerY, 'Sun excl.', 3.6, 'middle');
+                  return (
+                    <g key="sun-exclusion">
+                      <path
+                        d={d}
+                        fill="#FFD700"
+                        fillOpacity={0.08}
+                        stroke="#FFD700"
+                        strokeWidth="0.5"
+                        strokeOpacity={0.5}
+                        strokeDasharray="2 1.5"
+                      />
+                      <text x={exLabel.x} y={exLabel.y} fontSize="3.6" fill="#FFD700" opacity="0.6" textAnchor="middle">Sun excl.</text>
                     </g>
                   );
                 })()}
