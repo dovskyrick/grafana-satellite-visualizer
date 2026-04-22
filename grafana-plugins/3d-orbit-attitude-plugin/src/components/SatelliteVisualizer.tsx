@@ -1769,9 +1769,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     const y = 90 - azel.el; // el is negative so y > 90, inside the Earth disk
                     return (
                       <g key={gs.id}>
-                        <circle cx={x} cy={y} r="1.8" fill="#44FF88" opacity="0.9" />
-                        <circle cx={x} cy={y} r="3.2" fill="none" stroke="#44FF88" strokeWidth="0.35" opacity="0.5" />
-                        <text x={x + 3.5} y={y + 1.5} fontSize="4.8" fill="#44FF88" opacity="0.85">{gs.name}</text>
+                        <circle cx={x} cy={y} r="1.8" fill="#FF8800" opacity="0.9" />
+                        <circle cx={x} cy={y} r="3.2" fill="none" stroke="#FF8800" strokeWidth="0.35" opacity="0.5" />
+                        <text x={x + 3.5} y={y + 1.5} fontSize="4.8" fill="#FF8800" opacity="0.85">{gs.name}</text>
                       </g>
                     );
                   });
