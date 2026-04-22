@@ -1735,6 +1735,37 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   );
                 })()}
 
+                {/* Moon — equirectangular projection across the full panel */}
+                {(() => {
+                  if (!overlayClockTime) { return null; }
+                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+                  if (!trackedSat) { return null; }
+                  const satPos = trackedSat.position.getValue(overlayClockTime);
+                  if (!satPos) { return null; }
+
+                  const moonECI = Simon1994PlanetaryPositions.computeMoonPositionInEarthInertialFrame(
+                    overlayClockTime, new Cartesian3()
+                  );
+                  const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
+                  const moonECEF = icrfToFixed
+                    ? Matrix3.multiplyByVector(icrfToFixed, moonECI, new Cartesian3())
+                    : moonECI;
+
+                  const azel = computeAzEl(satPos, moonECEF);
+                  if (!azel) { return null; }
+
+                  const x = azel.az;
+                  const y = 90 - azel.el;
+                  const moonLabel = clampLabel(x + 4.5, y - 1, 'Moon', 4.8);
+                  return (
+                    <g key="moon">
+                      <circle cx={x} cy={y} r="2.2" fill="#C0C0C0" />
+                      <circle cx={x} cy={y} r="3.8" fill="none" stroke="#C0C0C0" strokeWidth="0.4" opacity="0.5" />
+                      <text x={moonLabel.x} y={moonLabel.y} fontSize="4.8" fill="#C0C0C0" opacity="0.9">Moon</text>
+                    </g>
+                  );
+                })()}
+
                 {/* Earth disk — visible hemisphere boundary from satellite */}
                 {(() => {
                   if (!overlayClockTime) { return null; }
