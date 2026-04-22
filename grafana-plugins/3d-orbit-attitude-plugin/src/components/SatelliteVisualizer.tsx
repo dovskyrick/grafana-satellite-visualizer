@@ -87,6 +87,7 @@ import {
   SampledProperty,
   CallbackProperty,
   Simon1994PlanetaryPositions,
+  SceneMode,
 } from 'cesium';
 
 import 'cesium/Build/Cesium/Widgets/widgets.css';
@@ -842,7 +843,16 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       if (hoverTimeout) {
         clearTimeout(hoverTimeout);
       }
-      
+
+      // scene.pick() triggers a full pick-render pass. In 2D / Columbus View mode
+      // Cesium tries to normalize billboard positions and crashes on any entity
+      // sitting at an invalid ECEF coordinate. Skip picking in non-3D modes.
+      if (viewer.scene.mode !== SceneMode.SCENE3D) {
+        setHoveredEntityName(null);
+        setTooltipPosition(null);
+        return;
+      }
+
       const pickedObject = viewer.scene.pick(movement.endPosition);
       
       if (pickedObject && pickedObject.id && pickedObject.id.name) {
@@ -1509,11 +1519,15 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           />
         )}
         
-        {/* Celestial Bodies (Sun + Earth Center) */}
-        <CelestialBodiesRenderer
-          options={options}
-          viewerRef={viewerRef}
-        />
+        {/* Celestial Bodies (Sun + Earth Center) — only in celestial mode.
+            The Earth Center entity sits at Cartesian3.ZERO which Cesium cannot
+            normalize in 2D/Columbus scene modes, causing a crash. */}
+        {selectedMode === 'celestial' && (
+          <CelestialBodiesRenderer
+            options={options}
+            viewerRef={viewerRef}
+          />
+        )}
         {options.locations.map((location, index) => (
           <Entity
             name={location.name}

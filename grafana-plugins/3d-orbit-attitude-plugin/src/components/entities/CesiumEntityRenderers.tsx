@@ -497,17 +497,19 @@ export const SensorVisualizationRenderer: React.FC<SensorVisualizationProps> = (
           position={new CallbackProperty((time) => {
             const satPos = satellite.position.getValue(time);
             const satOrient = satellite.orientation.getValue(time);
-            if (!satPos || !satOrient) { return Cartesian3.ZERO; }
+            if (!satPos || !satOrient) { return undefined; }
             const sensorBodyQuat = new Quaternion(
               sensor.orientation.qx, sensor.orientation.qy,
               sensor.orientation.qz, sensor.orientation.qw
             );
             const sensorWorldQuat = Quaternion.multiply(satOrient, sensorBodyQuat, new Quaternion());
             const rotMatrix = Matrix3.fromQuaternion(sensorWorldQuat);
-            const sensorDir = Cartesian3.normalize(
-              Matrix3.multiplyByVector(rotMatrix, new Cartesian3(0, 0, 1), new Cartesian3()),
-              new Cartesian3()
-            );
+            const rawDir = Matrix3.multiplyByVector(rotMatrix, new Cartesian3(0, 0, 1), new Cartesian3());
+            // Guard: degenerate quaternion → zero or NaN direction vector → skip.
+            if (!isFinite(rawDir.x) || !isFinite(rawDir.y) || !isFinite(rawDir.z)) { return undefined; }
+            const mag = Cartesian3.magnitude(rawDir);
+            if (mag === 0) { return undefined; }
+            const sensorDir = Cartesian3.multiplyByScalar(rawDir, 1 / mag, new Cartesian3());
             const celestialRadius = Ellipsoid.WGS84.maximumRadius * 100;
             return Cartesian3.add(
               satPos,
@@ -690,7 +692,7 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
                 const pos = satellite.position.getValue(time);
                 const orient = satellite.orientation.getValue(time);
                 if (!pos || !orient) {
-                  return Cartesian3.ZERO;
+                  return undefined;
                 }
                 
                 // Use cached vector length — avoids per-frame camera distance recalc
@@ -700,13 +702,18 @@ export const BodyAxesRenderer: React.FC<BodyAxesProps> = ({
                 const rotationMatrix = Matrix3.fromQuaternion(orient);
                 const axisECEF = Matrix3.multiplyByVector(rotationMatrix, vector.axis, new Cartesian3());
                 
-                // Calculate endpoint (tip of vector)
+                // Calculate endpoint (tip of vector).
+                // Guard against NaN vectorLength (can happen when the frustum switches
+                // to OrthographicFrustum in 2D mode before getScaledLength updates).
+                if (!isFinite(vectorLength)) { return undefined; }
                 const endPos = Cartesian3.add(
                   pos,
                   Cartesian3.multiplyByScalar(axisECEF, vectorLength, new Cartesian3()),
                   new Cartesian3()
                 );
-                
+                if (!isFinite(endPos.x) || !isFinite(endPos.y) || !isFinite(endPos.z)) {
+                  return undefined;
+                }
                 return endPos;
               }, false) as any}
             >
@@ -1056,10 +1063,13 @@ export const CelestialBodiesRenderer: React.FC<CelestialBodiesProps> = ({
       )}
 
       {/* Earth Center Symbol */}
+      {/* NOTE: Cartesian3.ZERO cannot be used here — Cesium normalizes the position
+          vector to compute the geodetic surface normal, and normalizing a zero vector
+          produces NaN (crash). We place the marker 1 metre above true centre instead. */}
       {options.showAttitudeVisualization && (
         <Entity
           name="Earth Center"
-          position={Cartesian3.ZERO} // Earth center at (0, 0, 0)
+          position={new Cartesian3(0, 0, 1)}
         >
           <PointGraphics
             pixelSize={10}
