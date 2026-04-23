@@ -286,7 +286,10 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   
   // Store viewer reference for imagery setup in useEffect
   const viewerRef = React.useRef<any>(null);
-  
+
+  // Tracks the previous selectedMode so camera transition effects can detect which mode was left
+  const prevModeRef = React.useRef<string | null>(null);
+
   // Modal overlay refs for ESC key handling
   const satelliteModalRef = React.useRef<HTMLDivElement>(null);
   const groundStationModalRef = React.useRef<HTMLDivElement>(null);
@@ -705,14 +708,21 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         const earthRadius = 6378137; // meters
         const safeDistance = earthRadius * 2; // ~12,756 km (2x Earth radius)
         const duration = 1.5; // Smooth 1.5 second transition
-        
+
         flyToSatelliteNadirView(trackedSatelliteId, duration, safeDistance);
-        
+
         // Wait for animation to complete before activating free camera
         setTimeout(() => {
           setIsTracked(false);
           console.log('🌍 Free camera enabled (Earth Focus mode - Nadir view)');
         }, duration * 1000 + 100); // Animation duration + small buffer
+      } else if (prevModeRef.current === 'groundstation' && trackedSatelliteId) {
+        // Coming from GS POV: isTracked is already false so no setTimeout needed.
+        // Fly out to a sane nadir vantage point so the user lands on Earth view,
+        // not underground staring at the sky.
+        const earthRadius = 6378137;
+        flyToSatelliteNadirView(trackedSatelliteId, 1.5, earthRadius * 2);
+        console.log('🌍 GS POV → Earth Focus: flying to nadir view');
       }
     } else if (selectedMode === 'groundstation') {
       // Ground Station POV: fly camera to 2m above the GS eye point, looking straight up (zenith)
@@ -757,6 +767,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       });
       console.log(`📡 Ground Station POV: ${gs.name} (alt ${gs.altitude}m, FOV ${GS_POV_FOV_DEG}°)`);
     }
+
+    prevModeRef.current = selectedMode;
   }, [selectedMode, isTracked, trackedSatelliteId, trackedGroundStationId, groundStations, flyToSatelliteNadirView, viewerRef]);
 
   // Re-fly when user picks a different ground station while already in GS POV mode
