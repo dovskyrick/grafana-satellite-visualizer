@@ -962,8 +962,8 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
     const { radii } = getEllipsoidParams(time);
     const km = radii.x / 1000;
     return km >= 1
-      ? `${km.toFixed(1)} km`
-      : `${(radii.x).toFixed(0)} m`;
+      ? `${km.toFixed(1)} km radius`
+      : `${(radii.x).toFixed(0)} m radius`;
   }, false);
 
   return (
@@ -995,7 +995,6 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
           horizontalOrigin={HorizontalOrigin.LEFT}
           verticalOrigin={VerticalOrigin.CENTER}
           pixelOffset={new Cartesian2(6, 0)}
-          disableDepthTestDistance={Number.POSITIVE_INFINITY}
         />
       </Entity>
     </>
