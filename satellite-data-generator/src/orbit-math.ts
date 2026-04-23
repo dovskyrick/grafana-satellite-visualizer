@@ -22,59 +22,32 @@ export interface TrajectoryPoint {
   qy: number;
   qz: number;
   qs: number;
-  // Position uncertainty covariance (3x3 symmetric, ECEF frame, m²)
-  cov_xx: number;
-  cov_yy: number;
-  cov_zz: number;
-  cov_xy: number;
-  cov_xz: number;
-  cov_yz: number;
+  // Position uncertainty ellipsoid semi-axes in LVLH frame (metres)
+  ell_along: number;   // along-track (largest)
+  ell_cross: number;   // cross-track (medium)
+  ell_radial: number;  // radial (smallest)
 }
 
 const EARTH_RADIUS_KM = 6371;
 const TWO_PI = 2 * Math.PI;
 
 /**
- * Generate realistic position uncertainty covariance that grows with time.
- * Simulates sparse measurements:
- * - Fresh data after "measurement" has low uncertainty (~10m)
- * - Uncertainty grows between measurements (~50m max)
- * - Creates 3x3 covariance in ECEF frame
+ * Generate LVLH ellipsoid semi-axes that grow with time since last measurement.
+ * Returns metres directly — no covariance matrix, no rotation math.
  */
-function generateCovarianceForEpoch(
+function generateEllipsoidAxes(
   pointIndex: number,
-  totalPoints: number,
-  measurementInterval: number = 5 // "measurement" every N points
-): {
-  cov_xx: number;
-  cov_yy: number;
-  cov_zz: number;
-  cov_xy: number;
-  cov_xz: number;
-  cov_yz: number;
-} {
-  // Time since last "measurement" (in point indices)
+  measurementInterval: number = 5
+): { ell_along: number; ell_cross: number; ell_radial: number } {
   const timeSinceMeasurement = pointIndex % measurementInterval;
-  
-  // EXAGGERATED uncertainties for visual testing - make ellipsoids very obvious!
-  const baseUncertainty = 100 + (timeSinceMeasurement ** 2) * 50;  // 100m → 1250m
-  
-  // Create HIGHLY SKEWED covariance for visual testing
-  // Make X, Y, Z have very different variances
-  const xVar = (baseUncertainty * 3.0) ** 2;    // 3x larger in X
-  const yVar = (baseUncertainty * 0.5) ** 2;    // 0.5x in Y (smallest)
-  const zVar = (baseUncertainty * 1.5) ** 2;    // 1.5x in Z
-  
-  // Add STRONG correlations to create tilted ellipsoids
-  const strongCorrelation = 0.6 * Math.sqrt(xVar * yVar);  // 60% correlation!
-  
+
+  // EXAGGERATED for visual testing — 100 m → 1250 m pulsing cycle
+  const base = 100 + (timeSinceMeasurement ** 2) * 50;
+
   return {
-    cov_xx: xVar,
-    cov_yy: yVar,
-    cov_zz: zVar,
-    cov_xy: strongCorrelation,
-    cov_xz: strongCorrelation * 0.8,
-    cov_yz: strongCorrelation * 0.4,
+    ell_along:  base * 3.0, // along-track (largest)
+    ell_cross:  base * 1.5, // cross-track (medium)
+    ell_radial: base * 0.5, // radial (smallest)
   };
 }
 
@@ -132,21 +105,21 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     const xFinal = x * Math.cos(loanRad) - yInc * Math.sin(loanRad);
     const yFinal = x * Math.sin(loanRad) + yInc * Math.cos(loanRad);
     const zFinal = zInc;
-    
+
     // Convert to geodetic coordinates
     const latitude = Math.asin(zFinal) * (180 / Math.PI);
     const longitude = Math.atan2(yFinal, xFinal) * (180 / Math.PI);
-    
+
     // Simple nadir-pointing orientation (quaternion pointing Z-axis down)
     // For now, identity quaternion (can add proper LVLH frame later)
     const qx = 0;
     const qy = 0;
     const qz = 0;
     const qs = 1;
-    
-    // Generate covariance for this epoch
-    const covariance = generateCovarianceForEpoch(i, numPoints);
-    
+
+    // Generate ellipsoid axes for this epoch
+    const ellipsoid = generateEllipsoidAxes(i);
+
     points.push({
       time: timeMs,
       longitude: longitude,
@@ -156,7 +129,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
       qy,
       qz,
       qs,
-      ...covariance,  // Spread cov_xx, cov_yy, etc.
+      ...ellipsoid,
     });
   }
 

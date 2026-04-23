@@ -20,7 +20,7 @@ import {
 import { CoordinatesType, SimpleOptions } from 'types';
 import { ParsedSatellite } from 'types/satelliteTypes';
 import { parseSensors } from './sensorParser';
-import { parseCovariance } from './covarianceParser';
+import { parseEllipsoid } from './ellipsoidParser';
 
 /**
  * Parse multiple satellites from an array of DataFrames.
@@ -165,10 +165,10 @@ export function parseSatellites(
       const sensors = parseSensors(dataFrame);
       console.log(`   Sensors: ${sensors.length}`);
 
-      // Parse covariance data (optional - may not exist in all datasets)
-      const covariance = parseCovariance(dataFrame);
-      if (covariance.length > 0) {
-        console.log(`   Covariance epochs: ${covariance.length}`);
+      // Parse ellipsoid data (optional - may not exist in all datasets)
+      const ellipsoid = parseEllipsoid(dataFrame);
+      if (ellipsoid.length > 0) {
+        console.log(`   Ellipsoid epochs: ${ellipsoid.length}`);
       }
 
       satellites.push({
@@ -178,7 +178,7 @@ export function parseSatellites(
         orientation,
         availability,
         sensors,
-        covariance: covariance.length > 0 ? covariance : undefined,
+        ellipsoid: ellipsoid.length > 0 ? ellipsoid : undefined,
         lastObservedTime,
         trajectoryPositions,
       });

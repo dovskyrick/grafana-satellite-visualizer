@@ -1504,8 +1504,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         {selectedMode !== 'celestial' && options.showAttitudeVisualization && options.showUncertaintyEllipsoids && satellites
           .filter(sat => !hiddenSatellites.has(sat.id))
           .map((satellite) => {
-            // Only render if satellite has covariance data
-            if (!satellite.covariance || satellite.covariance.length === 0) {
+            // Only render if satellite has ellipsoid data
+            if (!satellite.ellipsoid || satellite.ellipsoid.length === 0) {
               return null;
             }
             

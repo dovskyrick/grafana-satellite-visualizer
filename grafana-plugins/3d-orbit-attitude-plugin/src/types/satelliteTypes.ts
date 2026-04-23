@@ -4,7 +4,7 @@
 
 import { SampledPositionProperty, SampledProperty, TimeIntervalCollection, IonResource, Cartesian3 } from 'cesium';
 import { SensorDefinition } from './sensorTypes';
-import { CovarianceEpoch } from '../parsers/covarianceParser';
+import { EllipsoidEpoch } from '../parsers/ellipsoidParser';
 
 /**
  * Parsed satellite data structure containing all information needed for visualization.
@@ -17,7 +17,7 @@ export interface ParsedSatellite {
   availability: TimeIntervalCollection; // Time intervals when satellite has data
   sensors: SensorDefinition[];          // Attached sensors
   resource?: IonResource | string;      // 3D model resource (optional, can use default)
-  covariance?: CovarianceEpoch[];       // Position uncertainty (optional)
+  ellipsoid?: EllipsoidEpoch[];          // Position uncertainty ellipsoid axes (optional)
   lastObservedTime?: number;            // Unix ms — split point between solid (past) and dashed (future) trajectory
   trajectoryPositions: Array<{ timeMs: number; position: Cartesian3 }>;
 }

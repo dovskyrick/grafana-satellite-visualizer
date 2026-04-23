@@ -38,7 +38,7 @@ import { getScaledLength } from 'utils/cameraScaling';
 import { hexToRgb } from 'utils/colorHelpers';
 import { generateConeMesh, generateSolidConeMesh, SENSOR_COLORS } from 'utils/sensorCone';
 import { computeFOVFootprint, computeFOVCelestialProjection, createDummyPolygonHierarchy } from 'utils/projections';
-import { covarianceToEllipsoid, getOpacityForQuality } from 'utils/covarianceEllipsoid';
+import { getOpacityForQuality } from 'utils/covarianceEllipsoid';
 
 /**
  * CesiumEntityRenderers.tsx
@@ -868,19 +868,16 @@ export interface UncertaintyEllipsoidProps {
 
 /**
  * UncertaintyEllipsoidRenderer
- * 
- * Renders a single 3D confidence ellipsoid that follows the satellite.
- * The ellipsoid's shape changes based on the nearest covariance data point.
- * 
+ *
+ * Renders a 3D confidence ellipsoid that follows the satellite.
+ * Axes come directly from LVLH semi-axis data (ell_along, ell_cross, ell_radial).
+ * Orientation is derived from the satellite position at runtime — no eigen-decomposition,
+ * no random initialization, no flicker.
+ *
  * Opacity indicates data quality:
  * - High (70%): Good quality data
  * - Medium (30%): Fair quality data
  * - Low (10%): Poor quality data
- * 
- * @param satellite - Satellite with covariance data
- * @param opacityMode - Data quality visualization mode
- * @param ellipsoidColor - Hex color string for ellipsoid
- * @param sigmaScale - Confidence interval scale (default: 1.0 = 1-sigma ~68%)
  */
 export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> = ({
   satellite,
@@ -888,9 +885,8 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
   ellipsoidColor,
   sigmaScale = 1.0,
 }) => {
-  // No covariance data available
-  if (!satellite.covariance || satellite.covariance.length === 0) {
-    console.log(`ℹ️ No covariance data for ${satellite.name}`);
+  if (!satellite.ellipsoid || satellite.ellipsoid.length === 0) {
+    console.log(`ℹ️ No ellipsoid data for ${satellite.name}`);
     return null;
   }
 
@@ -898,72 +894,89 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
   const baseColor = Color.fromCssColorString(ellipsoidColor);
   const color = baseColor.withAlpha(opacity);
 
-  console.log(`🔵 Rendering uncertainty ellipsoid for ${satellite.name} with ${satellite.covariance.length} epochs`);
+  console.log(`🔵 Rendering uncertainty ellipsoid for ${satellite.name} with ${satellite.ellipsoid.length} epochs`);
 
-  // Shared per-frame cache — all callbacks call this so covarianceToEllipsoid runs
-  // exactly once per frame, guaranteeing radii and orientation are consistent.
-  let cachedTimeMs = -1;
-  let cachedParams = covarianceToEllipsoid(satellite.covariance[0].covariance, sigmaScale);
-
-  function getEllipsoidParams(time: JulianDate) {
+  // Find the nearest ellipsoid epoch for the current time.
+  function getNearestAxes(time: JulianDate) {
     const currentTimeMs = JulianDate.toDate(time).getTime();
-    if (currentTimeMs === cachedTimeMs) {
-      return cachedParams;
-    }
-
-    let nearestEpoch = satellite.covariance![0];
-    let minDelta = Math.abs(nearestEpoch.timestamp - currentTimeMs);
-    for (const epoch of satellite.covariance!) {
+    let nearest = satellite.ellipsoid![0];
+    let minDelta = Math.abs(nearest.timestamp - currentTimeMs);
+    for (const epoch of satellite.ellipsoid!) {
       const delta = Math.abs(epoch.timestamp - currentTimeMs);
-      if (delta < minDelta) {
-        minDelta = delta;
-        nearestEpoch = epoch;
-      }
+      if (delta < minDelta) { minDelta = delta; nearest = epoch; }
     }
-
-    cachedParams = covarianceToEllipsoid(nearestEpoch.covariance, sigmaScale);
-    cachedTimeMs = currentTimeMs;
-    return cachedParams;
+    return nearest.axes;
   }
 
+  // Compute the LVLH orientation quaternion from satellite position at the given time.
+  // LVLH: X = along-track, Y = cross-track, Z = nadir (–radial).
+  // Matches the convention used in computeLVLHOrientation in SatelliteVisualizer.
+  function getLVLHOrientation(time: JulianDate): Quaternion {
+    const pos = satellite.position.getValue(time, new Cartesian3());
+    if (!pos || Cartesian3.magnitude(pos) === 0) { return new Quaternion(0, 0, 0, 1); }
+
+    const nextTime = JulianDate.addSeconds(time, 1, new JulianDate());
+    const nextPos = satellite.position.getValue(nextTime, new Cartesian3());
+    if (!nextPos) { return new Quaternion(0, 0, 0, 1); }
+
+    const zAxis = Cartesian3.normalize(Cartesian3.negate(pos, new Cartesian3()), new Cartesian3()); // nadir
+    const vel   = Cartesian3.subtract(nextPos, pos, new Cartesian3());
+    if (Cartesian3.magnitude(vel) === 0) { return new Quaternion(0, 0, 0, 1); }
+    const yAxis = Cartesian3.normalize(vel, new Cartesian3()); // along-track... wait, need X=along-track
+    const xAxis = Cartesian3.normalize(Cartesian3.cross(yAxis, zAxis, new Cartesian3()), new Cartesian3());
+    const yAxisOrtho = Cartesian3.cross(zAxis, xAxis, new Cartesian3());
+
+    const rotMatrix = new Matrix3(
+      xAxis.x, yAxisOrtho.x, zAxis.x,
+      xAxis.y, yAxisOrtho.y, zAxis.y,
+      xAxis.z, yAxisOrtho.z, zAxis.z
+    );
+    return Quaternion.fromRotationMatrix(rotMatrix, new Quaternion());
+  }
+
+  // Radii: X = along-track (radii.x), Y = cross-track (radii.y), Z = radial (radii.z)
   const dynamicRadii = new CallbackProperty((time: JulianDate) => {
     if (!time) { return new Cartesian3(100, 100, 100); }
-    return getEllipsoidParams(time).radii;
+    const axes = getNearestAxes(time);
+    return new Cartesian3(
+      axes.along  * sigmaScale,
+      axes.cross  * sigmaScale,
+      axes.radial * sigmaScale,
+    );
   }, false);
 
   const dynamicOrientation = new CallbackProperty((time: JulianDate) => {
     if (!time) { return new Quaternion(0, 0, 0, 1); }
-    return getEllipsoidParams(time).orientation;
+    return getLVLHOrientation(time);
   }, false);
 
-  // Label position: tip of the principal axis (largest semi-axis) in world space.
-  // principal axis direction = first column of the rotation matrix derived from orientation.
+  // Label at the along-track tip (radii.x direction = local X axis of LVLH frame).
   const dynamicLabelPosition = new CallbackProperty((time: JulianDate) => {
     if (!time) { return new Cartesian3(0, 0, 0); }
-
     const satPos = satellite.position.getValue(time, new Cartesian3());
     if (!satPos) { return new Cartesian3(0, 0, 0); }
 
-    const { radii, orientation } = getEllipsoidParams(time);
-
-    // Rotate the principal axis unit vector (1,0,0) by the ellipsoid orientation
+    const axes = getNearestAxes(time);
+    const orientation = getLVLHOrientation(time);
     const rotMatrix = Matrix3.fromQuaternion(orientation, new Matrix3());
-    const principalAxis = new Cartesian3(rotMatrix[0], rotMatrix[1], rotMatrix[2]);
+    // First column of rotation matrix = local X axis (along-track) in ECEF
+    const alongTrackDir = new Cartesian3(rotMatrix[0], rotMatrix[1], rotMatrix[2]);
 
     return Cartesian3.add(
       satPos,
-      Cartesian3.multiplyByScalar(principalAxis, radii.x, new Cartesian3()),
+      Cartesian3.multiplyByScalar(alongTrackDir, axes.along * sigmaScale, new Cartesian3()),
       new Cartesian3()
     );
   }, false);
 
   const dynamicLabelText = new CallbackProperty((time: JulianDate) => {
     if (!time) { return ''; }
-    const { radii } = getEllipsoidParams(time);
-    const km = radii.x / 1000;
+    const axes = getNearestAxes(time);
+    const m = axes.along * sigmaScale;
+    const km = m / 1000;
     return km >= 1
       ? `${km.toFixed(1)} km radius`
-      : `${(radii.x).toFixed(0)} m radius`;
+      : `${m.toFixed(0)} m radius`;
   }, false);
 
   return (

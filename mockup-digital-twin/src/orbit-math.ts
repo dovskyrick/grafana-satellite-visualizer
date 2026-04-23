@@ -24,45 +24,32 @@ export interface TrajectoryPoint {
   qy: number;
   qz: number;
   qs: number;
-  // Position uncertainty covariance (3x3 symmetric, ECEF frame, m²)
-  cov_xx: number;
-  cov_yy: number;
-  cov_zz: number;
-  cov_xy: number;
-  cov_xz: number;
-  cov_yz: number;
+  // Position uncertainty ellipsoid semi-axes in LVLH frame (metres)
+  ell_along: number;   // along-track (largest)
+  ell_cross: number;   // cross-track (medium)
+  ell_radial: number;  // radial (smallest)
 }
 
 const EARTH_RADIUS_KM = 6371;
 const TWO_PI = 2 * Math.PI;
 
-function generateCovarianceForEpoch(
+/**
+ * Generate LVLH ellipsoid semi-axes that grow with time since last measurement.
+ * Returns metres directly — no covariance matrix, no rotation math.
+ */
+function generateEllipsoidAxes(
   pointIndex: number,
-  totalPoints: number,
   measurementInterval = 5
-): {
-  cov_xx: number;
-  cov_yy: number;
-  cov_zz: number;
-  cov_xy: number;
-  cov_xz: number;
-  cov_yz: number;
-} {
+): { ell_along: number; ell_cross: number; ell_radial: number } {
   const timeSinceMeasurement = pointIndex % measurementInterval;
-  const baseUncertainty = 100 + (timeSinceMeasurement ** 2) * 50;
 
-  const xVar = (baseUncertainty * 3.0) ** 2;
-  const yVar = (baseUncertainty * 0.5) ** 2;
-  const zVar = (baseUncertainty * 1.5) ** 2;
-  const strongCorrelation = 0.6 * Math.sqrt(xVar * yVar);
+  // EXAGGERATED for visual testing — 100 m → 1250 m pulsing cycle
+  const base = 100 + (timeSinceMeasurement ** 2) * 50;
 
   return {
-    cov_xx: xVar,
-    cov_yy: yVar,
-    cov_zz: zVar,
-    cov_xy: strongCorrelation,
-    cov_xz: strongCorrelation * 0.8,
-    cov_yz: strongCorrelation * 0.4,
+    ell_along:  base * 3.0,
+    ell_cross:  base * 1.5,
+    ell_radial: base * 0.5,
   };
 }
 
@@ -110,7 +97,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     const latitude = Math.asin(zFinal) * (180 / Math.PI);
     const longitude = Math.atan2(yFinal, xFinal) * (180 / Math.PI);
 
-    const covariance = generateCovarianceForEpoch(i, numPoints);
+    const ellipsoid = generateEllipsoidAxes(i);
 
     points.push({
       time: timeMs,
@@ -121,7 +108,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
       qy: 0,
       qz: 0,
       qs: 1,
-      ...covariance,
+      ...ellipsoid,
     });
   }
 
