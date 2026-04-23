@@ -909,8 +909,10 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
   }
 
   // Compute the LVLH orientation quaternion from satellite position at the given time.
-  // LVLH: X = along-track, Y = cross-track, Z = nadir (–radial).
-  // Matches the convention used in computeLVLHOrientation in SatelliteVisualizer.
+  // Convention (matches computeLVLHOrientation in SatelliteVisualizer):
+  //   X = cross-track  (cross(along-track, nadir))
+  //   Y = along-track  (velocity direction)
+  //   Z = nadir        (−radial, towards Earth)
   function getLVLHOrientation(time: JulianDate): Quaternion {
     const pos = satellite.position.getValue(time, new Cartesian3());
     if (!pos || Cartesian3.magnitude(pos) === 0) { return new Quaternion(0, 0, 0, 1); }
@@ -934,14 +936,14 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
     return Quaternion.fromRotationMatrix(rotMatrix, new Quaternion());
   }
 
-  // Radii: X = along-track (radii.x), Y = cross-track (radii.y), Z = radial (radii.z)
+  // Radii mapped to LVLH body axes: X=cross-track, Y=along-track, Z=nadir
   const dynamicRadii = new CallbackProperty((time: JulianDate) => {
     if (!time) { return new Cartesian3(100, 100, 100); }
     const axes = getNearestAxes(time);
     return new Cartesian3(
-      axes.along  * sigmaScale,
-      axes.cross  * sigmaScale,
-      axes.radial * sigmaScale,
+      axes.cross  * sigmaScale,  // X = cross-track
+      axes.along  * sigmaScale,  // Y = along-track (largest)
+      axes.radial * sigmaScale,  // Z = nadir/radial (smallest)
     );
   }, false);
 
@@ -959,8 +961,8 @@ export const UncertaintyEllipsoidRenderer: React.FC<UncertaintyEllipsoidProps> =
     const axes = getNearestAxes(time);
     const orientation = getLVLHOrientation(time);
     const rotMatrix = Matrix3.fromQuaternion(orientation, new Matrix3());
-    // First column of rotation matrix = local X axis (along-track) in ECEF
-    const alongTrackDir = new Cartesian3(rotMatrix[0], rotMatrix[1], rotMatrix[2]);
+    // Second column (indices 3,4,5) = local Y axis = along-track in ECEF
+    const alongTrackDir = new Cartesian3(rotMatrix[3], rotMatrix[4], rotMatrix[5]);
 
     return Cartesian3.add(
       satPos,
