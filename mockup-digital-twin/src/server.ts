@@ -124,8 +124,9 @@ function buildSatelliteFrame(
 // ---------------------------------------------------------------------------
 function generateTrajectory(fromMs: number, durationSeconds: number) {
   const startTime = new Date(fromMs);
-  // One point every 5 minutes
-  const numPoints = Math.floor(durationSeconds / 300) + 1;
+  // One point every 1 minute
+  const numPoints = Math.floor(durationSeconds / 60) + 1;
+  const lastObservedTime = new Date(fromMs + (durationSeconds / 2) * 1000);
 
   const satellitesData = SATELLITE_CONFIGS.map((config, idx) => {
     const params: OrbitParams = {
@@ -136,6 +137,7 @@ function generateTrajectory(fromMs: number, durationSeconds: number) {
       startTime,
       numPoints,
       duration: durationSeconds,
+      lastObservedTime,
     };
 
     const trajectory = config.type === 'tumbling'
@@ -143,8 +145,7 @@ function generateTrajectory(fromMs: number, durationSeconds: number) {
       : generateCircularOrbit(params);
 
     const sensors = buildSensors(idx);
-    const lastObservedTime = trajectory[Math.floor(trajectory.length / 2)].time;
-    return buildSatelliteFrame(config.id, config.name, trajectory, sensors, lastObservedTime);
+    return buildSatelliteFrame(config.id, config.name, trajectory, sensors, lastObservedTime.getTime());
   });
 
   const groundStationsFrame = {

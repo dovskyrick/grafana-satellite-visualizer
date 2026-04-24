@@ -121,9 +121,9 @@ function main() {
   const windowEnd = new Date(now.getTime() + threeHoursMs);
   const windowDurationSeconds = 6 * 60 * 60; // 21600 s
 
-  // One point every 5 minutes over 6 hours = 72 points
-  const pointIntervalMinutes = 5;
-  const numPoints = Math.floor((windowDurationSeconds / 60) / pointIntervalMinutes) + 1; // 73
+  // One point every 1 minute over 6 hours = 360 points
+  const pointIntervalMinutes = 1;
+  const numPoints = Math.floor((windowDurationSeconds / 60) / pointIntervalMinutes) + 1; // 361
 
   console.log('🕐 Realtime window generator');
   console.log(`   Script run at      : ${now.toISOString()}`);
@@ -132,6 +132,8 @@ function main() {
   console.log(`   Window end   (+3h) : ${windowEnd.toISOString()}`);
   console.log(`   Duration           : 6 hours (3h past + 3h future)`);
   console.log(`   Points/sat         : ${numPoints} (~1 per ${pointIntervalMinutes} min)\n`);
+
+  const lastObservedTime = now;
 
   const satelliteConfigs = [
     {
@@ -168,10 +170,11 @@ function main() {
       altitude: config.altitude,
       inclination: config.inclination,
       longitudeOfAN: config.longitudeOfAN,
-      startTime: windowStart,        // ← 3 hours ago
+      startTime: windowStart,
       numPoints,
-      duration: windowDurationSeconds, // ← 6 hours total
+      duration: windowDurationSeconds,
       startAnomaly: config.startAnomaly,
+      lastObservedTime,
     };
 
     const trajectory = config.type === 'tumbling'

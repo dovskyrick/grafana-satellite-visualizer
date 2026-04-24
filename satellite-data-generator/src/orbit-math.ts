@@ -11,6 +11,7 @@ export interface OrbitParams {
   numPoints: number;          // Number of data points
   duration: number;           // Total duration in seconds
   startAnomaly?: number;      // Starting position in orbit (degrees), default 0
+  lastObservedTime?: Date;    // Boundary between known past and predicted future
 }
 
 export interface TrajectoryPoint {
@@ -32,22 +33,35 @@ const EARTH_RADIUS_KM = 6371;
 const TWO_PI = 2 * Math.PI;
 
 /**
- * Generate LVLH ellipsoid semi-axes that grow with time since last measurement.
- * Returns metres directly — no covariance matrix, no rotation math.
+ * Generate LVLH ellipsoid semi-axes.
+ *
+ * Before lastObservedMs: constant small axes representing well-known past position.
+ * After  lastObservedMs: monotonically growing axes representing prediction uncertainty.
+ *
+ * Growth is quadratic over a 3-hour horizon so the ellipsoid visibly expands as
+ * the satellite moves into the future.
  */
 function generateEllipsoidAxes(
-  pointIndex: number,
-  measurementInterval: number = 5
+  timeMs: number,
+  lastObservedMs: number
 ): { ell_along: number; ell_cross: number; ell_radial: number } {
-  const timeSinceMeasurement = pointIndex % measurementInterval;
+  const PAST_ALONG  = 500;   // m — known past: ~500 m along-track
+  const PAST_CROSS  = 200;   // m
+  const PAST_RADIAL = 100;   // m
 
-  // EXAGGERATED for visual testing — 100 m → 1250 m pulsing cycle
-  const base = 100 + (timeSinceMeasurement ** 2) * 50;
+  if (timeMs <= lastObservedMs) {
+    return { ell_along: PAST_ALONG, ell_cross: PAST_CROSS, ell_radial: PAST_RADIAL };
+  }
+
+  // Quadratic growth over a 3-hour horizon
+  const secondsAfter = (timeMs - lastObservedMs) / 1000;
+  const t = Math.min(secondsAfter / (3 * 3600), 1.0); // 0 → 1 over 3 h
+  const base = PAST_ALONG + t * t * 4000; // 500 m → 4500 m
 
   return {
-    ell_along:  base * 3.0, // along-track (largest)
-    ell_cross:  base * 1.5, // cross-track (medium)
-    ell_radial: base * 0.5, // radial (smallest)
+    ell_along:  base * 1.0,  // along-track (principal axis)
+    ell_cross:  base * 0.5,  // cross-track
+    ell_radial: base * 0.17, // radial (smallest)
   };
 }
 
@@ -75,7 +89,12 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     numPoints,
     duration,
     startAnomaly = 0,
+    lastObservedTime,
   } = params;
+
+  const lastObservedMs = lastObservedTime
+    ? lastObservedTime.getTime()
+    : startTime.getTime() + (duration / 2) * 1000; // default: midpoint
 
   const inclinationRad = (inclination * Math.PI) / 180;
   const loanRad = (longitudeOfAN * Math.PI) / 180;
@@ -118,7 +137,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     const qs = 1;
 
     // Generate ellipsoid axes for this epoch
-    const ellipsoid = generateEllipsoidAxes(i);
+    const ellipsoid = generateEllipsoidAxes(timeMs, lastObservedMs);
 
     points.push({
       time: timeMs,
