@@ -148,8 +148,8 @@ function generateScenario1(fromMs: number, durationSeconds: number) {
   const numPointsHalf = Math.floor(halfDuration / 60) + 1;
 
   const COLLISION_SATELLITES = [
-    { id: 'col-sat-a', name: 'SAT-ALPHA',  altitude: 550,   inclination:  53, longitudeOfAN: 0 },
-    { id: 'col-sat-b', name: 'SAT-BETA',   altitude: 550.2, inclination:  20, longitudeOfAN: 0 },
+    { id: 'col-sat-a', name: 'SAT-ALPHA',  altitude: 550,   inclination: 53, longitudeOfAN: 0, eccentricity: 0   },
+    { id: 'col-sat-b', name: 'SAT-BETA',   altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1 },
   ];
 
   const frames = COLLISION_SATELLITES.map((cfg, idx) => {
@@ -157,6 +157,7 @@ function generateScenario1(fromMs: number, durationSeconds: number) {
       altitude:      cfg.altitude,
       inclination:   cfg.inclination,
       longitudeOfAN: cfg.longitudeOfAN,
+      eccentricity:  cfg.eccentricity,
       startAnomaly:  0,
       startTime:     tcaDate,
       numPoints:     numPointsHalf,

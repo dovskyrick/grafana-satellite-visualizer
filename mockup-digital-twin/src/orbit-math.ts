@@ -1,6 +1,6 @@
 /**
  * Orbital mechanics utilities for generating realistic satellite trajectories.
- * Uses simplified Keplerian orbits (circular for now, can add elliptical later).
+ * Supports circular (eccentricity=0) and elliptical (eccentricity>0) Keplerian orbits.
  *
  * Copied from satellite-data-generator/src/orbit-math.ts
  */
@@ -16,6 +16,7 @@ export interface OrbitParams {
   lastObservedTime?: Date;    // Boundary between known past and predicted future
   reverseTime?: boolean;      // If true, Earth rotation drift is inverted (for backward-propagated arcs)
   timeDirection?: 1 | -1;    // 1 = forward in time (default), -1 = backward (anomaly and timestamps retreat)
+  eccentricity?: number;      // 0 = circular (default), >0 = elliptical; altitude becomes periapsis altitude
 }
 
 export interface TrajectoryPoint {
@@ -67,10 +68,24 @@ function generateEllipsoidAxes(
   };
 }
 
-function calculateOrbitalPeriod(altitudeKm: number): number {
-  const radiusKm = EARTH_RADIUS_KM + altitudeKm;
-  const mu = 398600.4418;
-  return TWO_PI * Math.sqrt(Math.pow(radiusKm, 3) / mu);
+// Period depends only on semi-major axis: T = 2π√(a³/μ)
+function calculateOrbitalPeriod(semiMajorAxisKm: number): number {
+  const mu = 398600.4418; // km³/s²
+  return TWO_PI * Math.sqrt(Math.pow(semiMajorAxisKm, 3) / mu);
+}
+
+/**
+ * Solve Kepler's equation M = E − e·sin(E) for eccentric anomaly E.
+ * Uses Newton–Raphson; converges in ≤5 iterations for e < 0.3.
+ */
+function solveKepler(M: number, e: number): number {
+  let E = M;
+  for (let iter = 0; iter < 10; iter++) {
+    const dE = (M - E + e * Math.sin(E)) / (1 - e * Math.cos(E));
+    E += dE;
+    if (Math.abs(dE) < 1e-10) { break; }
+  }
+  return E;
 }
 
 export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
@@ -85,6 +100,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     lastObservedTime,
     reverseTime = false,
     timeDirection = 1,
+    eccentricity = 0,
   } = params;
 
   const lastObservedMs = lastObservedTime
@@ -94,7 +110,13 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
   const inclinationRad = (inclination * Math.PI) / 180;
   const loanRad = (longitudeOfAN * Math.PI) / 180;
   const startAnomalyRad = (startAnomaly * Math.PI) / 180;
-  const period = calculateOrbitalPeriod(altitude);
+
+  // When eccentricity > 0, `altitude` is the periapsis altitude.
+  // Semi-major axis: a = r_periapsis / (1 − e).  For e=0 this equals the orbital radius.
+  const periapsisRadiusKm = EARTH_RADIUS_KM + altitude;
+  const semiMajorAxisKm   = periapsisRadiusKm / (1 - eccentricity);
+  const sqrtOneMinusE2    = Math.sqrt(1 - eccentricity * eccentricity);
+  const period = calculateOrbitalPeriod(semiMajorAxisKm);
 
   const points: TrajectoryPoint[] = [];
   const startTimeMs = startTime.getTime();
@@ -106,8 +128,17 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     const timeMs = startTimeMs + timeDirection * t * 1000;
     const meanAnomaly = startAnomalyRad + timeDirection * (t / period) * TWO_PI;
 
-    const x = Math.cos(meanAnomaly);
-    const y = Math.sin(meanAnomaly);
+    // Solve Kepler's equation to get eccentric anomaly E (for e=0, E=M exactly).
+    const E = solveKepler(meanAnomaly, eccentricity);
+
+    // Position in the orbital plane (km), with Earth's centre at the focus.
+    const xOrb     = semiMajorAxisKm * (Math.cos(E) - eccentricity);
+    const yOrb     = semiMajorAxisKm * sqrtOneMinusE2 * Math.sin(E);
+    const radiusKm = semiMajorAxisKm * (1 - eccentricity * Math.cos(E));
+
+    // Unit direction vector — the inclination/LOAN rotations need only the direction.
+    const x = xOrb / radiusKm;
+    const y = yOrb / radiusKm;
 
     const yInc = y * Math.cos(inclinationRad);
     const zInc = y * Math.sin(inclinationRad);
@@ -123,13 +154,16 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     const lonECI = Math.atan2(yFinal, xFinal) * (180 / Math.PI);
     const longitude = ((lonECI - EARTH_ROTATION_DEG_PER_S * elapsedS + 540) % 360) - 180;
 
+    // Altitude varies along elliptical orbit; for circular orbits it is constant.
+    const altitudeM = (radiusKm - EARTH_RADIUS_KM) * 1000;
+
     const ellipsoid = generateEllipsoidAxes(timeMs, lastObservedMs);
 
     points.push({
       time: timeMs,
       longitude,
       latitude,
-      altitude: altitude * 1000,
+      altitude: altitudeM,
       qx: 0,
       qy: 0,
       qz: 0,
