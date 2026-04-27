@@ -120,9 +120,18 @@ function buildSatelliteFrame(
 }
 
 // ---------------------------------------------------------------------------
+// Scenario identifiers — must stay in sync with ScenarioId enum in the plugin
+// ---------------------------------------------------------------------------
+const enum ScenarioId {
+  Default        = 0,
+  CollisionRisk1 = 1,
+  // 2–5 reserved for future scenarios
+}
+
+// ---------------------------------------------------------------------------
 // Core generation — startTime comes from Grafana's "from", duration capped at 6h
 // ---------------------------------------------------------------------------
-function generateTrajectory(fromMs: number, durationSeconds: number) {
+function generateTrajectory(fromMs: number, durationSeconds: number, scenario: number) {
   const startTime = new Date(fromMs);
   // One point every 1 minute
   const numPoints = Math.floor(durationSeconds / 60) + 1;
@@ -155,7 +164,12 @@ function generateTrajectory(fromMs: number, durationSeconds: number) {
     rows: [],
   };
 
-  return [...satellitesData, groundStationsFrame];
+  // Scenario 1: return only the first two satellites (collision risk pair)
+  const filteredSatellites = scenario === ScenarioId.CollisionRisk1
+    ? satellitesData.slice(0, 2)
+    : satellitesData;
+
+  return [...filteredSatellites, groundStationsFrame];
 }
 
 // ---------------------------------------------------------------------------
@@ -166,8 +180,9 @@ function handleHealth(_req: Request, res: Response) {
 }
 
 function handleSatellites(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
+  const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
+  const scenario = req.query.scenario ? parseInt(req.query.scenario as string) : ScenarioId.Default;
 
   const requestedSeconds = (toMs - fromMs) / 1000;
   const durationSeconds  = Math.min(requestedSeconds, MAX_DURATION_S);
@@ -176,10 +191,11 @@ function handleSatellites(req: Request, res: Response) {
     `[${new Date().toISOString()}] GET /api/satellites` +
     `  from=${new Date(fromMs).toISOString()}` +
     `  to=${new Date(toMs).toISOString()}` +
-    `  effective=${(durationSeconds / 3600).toFixed(2)}h`
+    `  effective=${(durationSeconds / 3600).toFixed(2)}h` +
+    `  scenario=${scenario}`
   );
 
-  res.json(generateTrajectory(fromMs, durationSeconds));
+  res.json(generateTrajectory(fromMs, durationSeconds, scenario));
 }
 
 // ---------------------------------------------------------------------------

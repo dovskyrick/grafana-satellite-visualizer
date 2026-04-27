@@ -42,6 +42,7 @@ export interface SimpleOptions {
   locationPointColor: string;
 
   digitalTwinUrl: string;
+  scenarioId: ScenarioId;
 
   accessToken: string;
 
@@ -67,6 +68,15 @@ export enum CoordinatesType {
   CartesianFixed = 'CartesianFixed',
   CartesianInertial = 'CartesianInertial',
   Geodetic = 'Geodetic',
+}
+
+export enum ScenarioId {
+  Default         = 0,
+  CollisionRisk1  = 1,
+  Scenario2       = 2,
+  Scenario3       = 3,
+  Scenario4       = 4,
+  Scenario5       = 5,
 }
 
 export enum UncertaintyOpacityMode {

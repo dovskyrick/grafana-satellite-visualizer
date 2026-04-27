@@ -956,7 +956,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     if (options.digitalTwinUrl) {
       const from = timeRange.from.valueOf();
       const to = timeRange.to.valueOf();
-      const url = `${options.digitalTwinUrl}/api/satellites?from=${from}&to=${to}`;
+      const url = `${options.digitalTwinUrl}/api/satellites?from=${from}&to=${to}&scenario=${options.scenarioId ?? 0}`;
 
       fetch(url)
         .then(r => {
@@ -977,7 +977,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
     fallbackToDatasource();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, options.coordinatesType, options.digitalTwinUrl, timeRange.from.valueOf(), timeRange.to.valueOf(), isLoaded]);
+  }, [data, options.coordinatesType, options.digitalTwinUrl, options.scenarioId, timeRange.from.valueOf(), timeRange.to.valueOf(), isLoaded]);
   
   // Default to tracking first satellite
   useEffect(() => {

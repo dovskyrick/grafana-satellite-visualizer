@@ -1,5 +1,5 @@
 import { PanelPlugin } from '@grafana/data';
-import { SimpleOptions, AssetMode, CoordinatesType, UncertaintyOpacityMode } from './types';
+import { SimpleOptions, AssetMode, CoordinatesType, UncertaintyOpacityMode, ScenarioId } from './types';
 import { SatelliteVisualizer } from './components/SatelliteVisualizer';
 
 import { LocationEditor } from './LocationEditor';
@@ -12,6 +12,24 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
       description: 'Fetch trajectory data from this server instead of the datasource (e.g. http://localhost:3001). Leave empty to use the datasource as normal.',
       defaultValue: '',
       category: ['Data Source'],
+    })
+    .addSelect({
+      path: 'scenarioId',
+      name: 'Scenario',
+      description: 'Select the scenario to request from the Digital Twin server.',
+      settings: {
+        options: [
+          { value: ScenarioId.Default,        label: 'Default (3 satellites)' },
+          { value: ScenarioId.CollisionRisk1, label: 'Scenario 1 – Collision Risk' },
+          { value: ScenarioId.Scenario2,      label: 'Scenario 2 (reserved)' },
+          { value: ScenarioId.Scenario3,      label: 'Scenario 3 (reserved)' },
+          { value: ScenarioId.Scenario4,      label: 'Scenario 4 (reserved)' },
+          { value: ScenarioId.Scenario5,      label: 'Scenario 5 (reserved)' },
+        ],
+      },
+      defaultValue: ScenarioId.Default,
+      category: ['Data Source'],
+      showIf: (config) => config.digitalTwinUrl !== '',
     })
 
     .addRadio({
