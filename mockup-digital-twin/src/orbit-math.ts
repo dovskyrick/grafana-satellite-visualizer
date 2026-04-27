@@ -14,6 +14,7 @@ export interface OrbitParams {
   duration: number;           // Total duration in seconds
   startAnomaly?: number;      // Starting position in orbit (degrees), default 0
   lastObservedTime?: Date;    // Boundary between known past and predicted future
+  reverseTime?: boolean;      // If true, Earth rotation drift is inverted (for backward-propagated arcs)
 }
 
 export interface TrajectoryPoint {
@@ -33,6 +34,8 @@ export interface TrajectoryPoint {
 
 const EARTH_RADIUS_KM = 6371;
 const TWO_PI = 2 * Math.PI;
+// Earth's sidereal rotation rate: 360° / 86164.1 s (one sidereal day)
+const EARTH_ROTATION_DEG_PER_S = 360 / 86164.1;
 
 /**
  * Generate LVLH ellipsoid semi-axes.
@@ -79,6 +82,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     duration,
     startAnomaly = 0,
     lastObservedTime,
+    reverseTime = false,
   } = params;
 
   const lastObservedMs = lastObservedTime
@@ -110,7 +114,11 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     const zFinal = zInc;
 
     const latitude = Math.asin(zFinal) * (180 / Math.PI);
-    const longitude = Math.atan2(yFinal, xFinal) * (180 / Math.PI);
+    // Subtract Earth rotation accumulated since startTime to convert ECI → ECEF longitude.
+    // For reverse-time arcs the elapsed time is negated so the drift inverts automatically.
+    const elapsedS = reverseTime ? -t : t;
+    const lonECI = Math.atan2(yFinal, xFinal) * (180 / Math.PI);
+    const longitude = ((lonECI - EARTH_ROTATION_DEG_PER_S * elapsedS + 540) % 360) - 180;
 
     const ellipsoid = generateEllipsoidAxes(timeMs, lastObservedMs);
 
