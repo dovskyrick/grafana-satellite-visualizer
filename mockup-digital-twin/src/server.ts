@@ -8,7 +8,7 @@ import {
 } from './orbit-math';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
-const MAX_DURATION_S = 6 * 60 * 60; // 6 hours cap
+const MAX_DURATION_S = 12 * 60 * 60; // 12 hours cap
 
 // ---------------------------------------------------------------------------
 // Fixed satellite configs — always the same 3 satellites
@@ -140,62 +140,78 @@ const enum ScenarioId {
 // timeDirection=-1 so timestamps decrease from TCA; .reverse() then makes them
 // chronologically ascending before concatenation with the forward arc.
 // ---------------------------------------------------------------------------
-function generateScenario1(fromMs: number, durationSeconds: number) {
-  const halfDuration = durationSeconds / 2;
-  const tcaMs        = fromMs + halfDuration * 1000;
-  const tcaDate      = new Date(tcaMs);
-  // One point per minute per half-arc
-  const numPointsHalf = Math.floor(halfDuration / 60) + 1;
+function generateScenario1(fromMs: number, toMs: number) {
+  const nowMs = Date.now();
+
+  // TCA is always 1 hour from now; lastObserved is always 1 hour ago.
+  // These are anchored to real clock time, not to the Grafana window.
+  const tcaMs            = nowMs + 1 * 3600 * 1000;
+  const lastObservedMs   = nowMs - 1 * 3600 * 1000;
+  const tcaDate          = new Date(tcaMs);
+  const lastObservedDate = new Date(lastObservedMs);
+
+  // Size each arc to exactly cover the requested Grafana window.
+  // If TCA falls outside the window one side will be 0 and that arc is skipped.
+  const backDurationS = Math.max((tcaMs - fromMs) / 1000, 0);
+  const fwdDurationS  = Math.max((toMs  - tcaMs)  / 1000, 0);
+  const numPointsBack = backDurationS > 0 ? Math.floor(backDurationS / 60) + 1 : 0;
+  const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / 60) + 1 : 0;
 
   const COLLISION_SATELLITES = [
-    { id: 'col-sat-a', name: 'SAT-ALPHA',  altitude: 550,   inclination: 53, longitudeOfAN: 0, eccentricity: 0   },
-    { id: 'col-sat-b', name: 'SAT-BETA',   altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1 },
+    { id: 'col-sat-a', name: 'SAT-ALPHA', altitude: 550,  inclination: 53, longitudeOfAN: 0, eccentricity: 0   },
+    { id: 'col-sat-b', name: 'SAT-BETA',  altitude: 550,  inclination: 20, longitudeOfAN: 0, eccentricity: 0.1 },
   ];
 
   const frames = COLLISION_SATELLITES.map((cfg, idx) => {
-    const baseParams: Omit<OrbitParams, 'timeDirection' | 'reverseTime'> = {
-      altitude:      cfg.altitude,
-      inclination:   cfg.inclination,
-      longitudeOfAN: cfg.longitudeOfAN,
-      eccentricity:  cfg.eccentricity,
-      startAnomaly:  0,
-      startTime:     tcaDate,
-      numPoints:     numPointsHalf,
-      duration:      halfDuration,
-      // TCA is "now" — past is observed (small ellipsoid), future is predicted (growing)
-      lastObservedTime: tcaDate,
+    const baseParams: Omit<OrbitParams, 'timeDirection' | 'reverseTime' | 'numPoints' | 'duration'> = {
+      altitude:         cfg.altitude,
+      inclination:      cfg.inclination,
+      longitudeOfAN:    cfg.longitudeOfAN,
+      eccentricity:     cfg.eccentricity,
+      startAnomaly:     0,
+      startTime:        tcaDate,
+      lastObservedTime: lastObservedDate,
     };
 
-    // Backward arc: satellite rewinds from TCA to TCA-halfDuration.
-    // Produces timestamps [TCA, TCA-1min, ..., TCA-halfDuration] — reversed below.
-    const backwardRaw = generateCircularOrbit({
-      ...baseParams,
-      timeDirection: -1,
-      reverseTime:   true,
-    });
-    const pastArc = [...backwardRaw].reverse(); // now ascending: [TCA-halfDuration, ..., TCA]
+    // Backward arc: rewind from TCA back to fromMs, then reverse to ascending timestamps.
+    const pastArc: TrajectoryPoint[] = numPointsBack > 0
+      ? [...generateCircularOrbit({
+          ...baseParams,
+          numPoints: numPointsBack,
+          duration:  backDurationS,
+          timeDirection: -1,
+          reverseTime:   true,
+        })].reverse()
+      : [];
 
-    // Forward arc: TCA → TCA+halfDuration
-    const futureArc = generateCircularOrbit({
-      ...baseParams,
-      timeDirection: 1,
-      reverseTime:   false,
-    });
+    // Forward arc: TCA forward to toMs.
+    const futureArc: TrajectoryPoint[] = numPointsFwd > 0
+      ? generateCircularOrbit({
+          ...baseParams,
+          numPoints: numPointsFwd,
+          duration:  fwdDurationS,
+          timeDirection: 1,
+          reverseTime:   false,
+        })
+      : [];
 
-    // Drop futureArc[0] — it duplicates the TCA point that ends pastArc
-    const trajectory: TrajectoryPoint[] = [...pastArc, ...futureArc.slice(1)];
+    // Concatenate, dropping the duplicate TCA point at the start of futureArc.
+    const trajectory: TrajectoryPoint[] = [
+      ...pastArc,
+      ...futureArc.slice(pastArc.length > 0 ? 1 : 0),
+    ];
 
     const sensors = buildSensors(idx);
-    return buildSatelliteFrame(cfg.id, cfg.name, trajectory, sensors, tcaMs);
+    return buildSatelliteFrame(cfg.id, cfg.name, trajectory, sensors, lastObservedMs);
   });
 
   return frames;
 }
 
 // ---------------------------------------------------------------------------
-// Core generation — startTime comes from Grafana's "from", duration capped at 6h
+// Core generation — startTime comes from Grafana's "from", duration capped at 12h
 // ---------------------------------------------------------------------------
-function generateTrajectory(fromMs: number, durationSeconds: number, scenario: number) {
+function generateTrajectory(fromMs: number, toMs: number, durationSeconds: number, scenario: number) {
   const startTime = new Date(fromMs);
   // One point every 1 minute
   const numPoints = Math.floor(durationSeconds / 60) + 1;
@@ -229,7 +245,7 @@ function generateTrajectory(fromMs: number, durationSeconds: number, scenario: n
   };
 
   if (scenario === ScenarioId.CollisionRisk1) {
-    return [...generateScenario1(fromMs, durationSeconds), groundStationsFrame];
+    return [...generateScenario1(fromMs, toMs), groundStationsFrame];
   }
 
   return [...satellitesData, groundStationsFrame];
@@ -258,7 +274,7 @@ function handleSatellites(req: Request, res: Response) {
     `  scenario=${scenario}`
   );
 
-  res.json(generateTrajectory(fromMs, durationSeconds, scenario));
+  res.json(generateTrajectory(fromMs, toMs, durationSeconds, scenario));
 }
 
 // ---------------------------------------------------------------------------
