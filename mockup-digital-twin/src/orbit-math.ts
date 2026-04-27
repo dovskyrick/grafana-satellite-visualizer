@@ -15,6 +15,7 @@ export interface OrbitParams {
   startAnomaly?: number;      // Starting position in orbit (degrees), default 0
   lastObservedTime?: Date;    // Boundary between known past and predicted future
   reverseTime?: boolean;      // If true, Earth rotation drift is inverted (for backward-propagated arcs)
+  timeDirection?: 1 | -1;    // 1 = forward in time (default), -1 = backward (anomaly and timestamps retreat)
 }
 
 export interface TrajectoryPoint {
@@ -83,6 +84,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     startAnomaly = 0,
     lastObservedTime,
     reverseTime = false,
+    timeDirection = 1,
   } = params;
 
   const lastObservedMs = lastObservedTime
@@ -99,9 +101,10 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
 
   for (let i = 0; i < numPoints; i++) {
     const t = (i / (numPoints - 1)) * duration;
-    const timeMs = startTimeMs + t * 1000;
-
-    const meanAnomaly = startAnomalyRad + (t / period) * TWO_PI;
+    // timeDirection drives both the orbital position and the timestamp direction.
+    // When -1, timestamps decrease from startTime and the satellite rewinds its orbit.
+    const timeMs = startTimeMs + timeDirection * t * 1000;
+    const meanAnomaly = startAnomalyRad + timeDirection * (t / period) * TWO_PI;
 
     const x = Math.cos(meanAnomaly);
     const y = Math.sin(meanAnomaly);

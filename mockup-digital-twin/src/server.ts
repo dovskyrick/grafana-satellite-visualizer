@@ -129,6 +129,68 @@ const enum ScenarioId {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 1 — two crossing orbits with TCA at the window midpoint
+//
+// Sat A: incl=53°,  LOAN=0° → heads NE at TCA, altitude 550 km
+// Sat B: incl=127°, LOAN=0° → heads NW at TCA, altitude 550.2 km (+200 m)
+//
+// Both satellites are at (lat=0°, lon≈0°) at anomaly=0°, producing an X-shaped
+// crossing ground track centred on TCA.  The backward arc is generated with
+// timeDirection=-1 so timestamps decrease from TCA; .reverse() then makes them
+// chronologically ascending before concatenation with the forward arc.
+// ---------------------------------------------------------------------------
+function generateScenario1(fromMs: number, durationSeconds: number) {
+  const halfDuration = durationSeconds / 2;
+  const tcaMs        = fromMs + halfDuration * 1000;
+  const tcaDate      = new Date(tcaMs);
+  // One point per minute per half-arc
+  const numPointsHalf = Math.floor(halfDuration / 60) + 1;
+
+  const COLLISION_SATELLITES = [
+    { id: 'col-sat-a', name: 'SAT-ALPHA',  altitude: 550,   inclination: 53,  longitudeOfAN: 0 },
+    { id: 'col-sat-b', name: 'SAT-BETA',   altitude: 550.2, inclination: 127, longitudeOfAN: 0 },
+  ];
+
+  const frames = COLLISION_SATELLITES.map((cfg, idx) => {
+    const baseParams: Omit<OrbitParams, 'timeDirection' | 'reverseTime'> = {
+      altitude:      cfg.altitude,
+      inclination:   cfg.inclination,
+      longitudeOfAN: cfg.longitudeOfAN,
+      startAnomaly:  0,
+      startTime:     tcaDate,
+      numPoints:     numPointsHalf,
+      duration:      halfDuration,
+      // TCA is "now" — past is observed (small ellipsoid), future is predicted (growing)
+      lastObservedTime: tcaDate,
+    };
+
+    // Backward arc: satellite rewinds from TCA to TCA-halfDuration.
+    // Produces timestamps [TCA, TCA-1min, ..., TCA-halfDuration] — reversed below.
+    const backwardRaw = generateCircularOrbit({
+      ...baseParams,
+      timeDirection: -1,
+      reverseTime:   true,
+    });
+    const pastArc = [...backwardRaw].reverse(); // now ascending: [TCA-halfDuration, ..., TCA]
+
+    // Forward arc: TCA → TCA+halfDuration
+    const futureArc = generateCircularOrbit({
+      ...baseParams,
+      timeDirection: 1,
+      reverseTime:   false,
+    });
+
+    // Drop futureArc[0] — it duplicates the TCA point that ends pastArc
+    const trajectory: TrajectoryPoint[] = [...pastArc, ...futureArc.slice(1)];
+
+    const sensors = buildSensors(idx);
+    return buildSatelliteFrame(cfg.id, cfg.name, trajectory, sensors, tcaMs);
+  });
+
+  return frames;
+}
+
+// ---------------------------------------------------------------------------
 // Core generation — startTime comes from Grafana's "from", duration capped at 6h
 // ---------------------------------------------------------------------------
 function generateTrajectory(fromMs: number, durationSeconds: number, scenario: number) {
@@ -164,12 +226,11 @@ function generateTrajectory(fromMs: number, durationSeconds: number, scenario: n
     rows: [],
   };
 
-  // Scenario 1: return only the first two satellites (collision risk pair)
-  const filteredSatellites = scenario === ScenarioId.CollisionRisk1
-    ? satellitesData.slice(0, 2)
-    : satellitesData;
+  if (scenario === ScenarioId.CollisionRisk1) {
+    return [...generateScenario1(fromMs, durationSeconds), groundStationsFrame];
+  }
 
-  return [...filteredSatellites, groundStationsFrame];
+  return [...satellitesData, groundStationsFrame];
 }
 
 // ---------------------------------------------------------------------------
