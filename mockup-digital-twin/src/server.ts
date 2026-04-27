@@ -132,7 +132,7 @@ const enum ScenarioId {
 // Scenario 1 — two crossing orbits with TCA at the window midpoint
 //
 // Sat A: incl=+53°, LOAN=0° → heads NE at TCA, altitude 550 km   (prograde)
-// Sat B: incl=-53°, LOAN=0° → heads SE at TCA, altitude 550.2 km  (prograde)
+// Sat B: incl=+20°, LOAN=0° → heads NE at TCA, altitude 550.2 km  (prograde, shallower angle)
 //
 // Both satellites are at (lat=0°, lon≈0°) at anomaly=0° and both move eastward,
 // producing an X-shaped crossing ground track centred on TCA.  The backward arc
@@ -149,7 +149,7 @@ function generateScenario1(fromMs: number, durationSeconds: number) {
 
   const COLLISION_SATELLITES = [
     { id: 'col-sat-a', name: 'SAT-ALPHA',  altitude: 550,   inclination:  53, longitudeOfAN: 0 },
-    { id: 'col-sat-b', name: 'SAT-BETA',   altitude: 550.2, inclination: -53, longitudeOfAN: 0 },
+    { id: 'col-sat-b', name: 'SAT-BETA',   altitude: 550.2, inclination:  20, longitudeOfAN: 0 },
   ];
 
   const frames = COLLISION_SATELLITES.map((cfg, idx) => {
