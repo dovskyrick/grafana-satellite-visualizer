@@ -141,12 +141,9 @@ const enum ScenarioId {
 // chronologically ascending before concatenation with the forward arc.
 // ---------------------------------------------------------------------------
 function generateScenario1(fromMs: number, toMs: number) {
-  const nowMs = Date.now();
-
-  // TCA is always 1 hour from now; lastObserved is always 1 hour ago.
-  // These are anchored to real clock time, not to the Grafana window.
-  const tcaMs            = nowMs + 1 * 3600 * 1000;
-  const lastObservedMs   = nowMs - 1 * 3600 * 1000;
+  const nowMs          = Date.now();
+  const tcaMs          = nowMs + 1 * 3600 * 1000;   // TCA = now + 1h
+  const lastObservedMs = nowMs - 1 * 3600 * 1000;   // last observed = now − 1h
   const tcaDate          = new Date(tcaMs);
   const lastObservedDate = new Date(lastObservedMs);
 
