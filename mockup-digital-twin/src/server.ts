@@ -173,6 +173,12 @@ function generateScenario1(fromMs: number, toMs: number) {
       lastObservedMs: tcaMs - 4 * 3600 * 1000,           // TCA − 4h = now − 2h30min
       ellipsoid: { startM: 50, endM: 700, growthHours: 4 },
     },
+    {
+      id: 'sat-2b',  name: 'SAT-2-B',
+      altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      lastObservedMs: tcaMs - 1.5 * 3600 * 1000,         // TCA − 1h30min = ~now
+      ellipsoid: { startM: 50, endM: 4000, growthHours: 1.5 },
+    },
   ];
 
   const frames = COLLISION_SATELLITES.map((cfg, idx) => {
