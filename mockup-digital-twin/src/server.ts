@@ -307,52 +307,41 @@ function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; 
 // the Cesium panel and the risk curve across all requests in the same slot.
 // ---------------------------------------------------------------------------
 function generateConfidenceTable(scenario: number) {
-  const tcaMs = getTcaMs();
+  const tcaMs  = getTcaMs();
+  const nowMs  = Date.now();
 
-  const fmt = (ms: number) => new Date(ms).toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+  const timeSince = (ms: number): string => {
+    const totalMin = Math.round((nowMs - ms) / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `${h}h ${m.toString().padStart(2, '0')}m` : `${m}m`;
+  };
+
+  const fmtEll = (m: number): string =>
+    m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+
+  const row = (id: string, confidence: number, ellM: number | null, lastObsMs: number, source: string) => ({
+    'Trajectory ID':       id,
+    'Confidence':          confidence,
+    'Ellipsoid at TCA':    ellM !== null ? fmtEll(ellM) : '—',
+    'Time Since Last Obs': timeSince(lastObsMs),
+    'Source':              source,
+  });
 
   if (scenario === ScenarioId.CollisionRisk1) {
     return [
-      {
-        id:                   'SAT-1',
-        source:               'ESA Catalogue',
-        confidence:           'High',
-        last_observed:        fmt(tcaMs - 2 * 3600 * 1000),
-        last_observed_label:  'TCA − 2h',
-        ellipsoid_at_tca_m:   600,
-      },
-      {
-        id:                   'SAT-2-A',
-        source:               'USSPACECOM TLE',
-        confidence:           'Low',
-        last_observed:        fmt(tcaMs - 4 * 3600 * 1000),
-        last_observed_label:  'TCA − 4h',
-        ellipsoid_at_tca_m:   700,
-      },
-      {
-        id:                   'SAT-2-B',
-        source:               'Commercial Radar',
-        confidence:           'Good',
-        last_observed:        fmt(tcaMs - 1.5 * 3600 * 1000),
-        last_observed_label:  'TCA − 1h30m',
-        ellipsoid_at_tca_m:   4000,
-      },
-      {
-        id:                   'SAT-2-C',
-        source:               'ESA OD Service',
-        confidence:           'Good',
-        last_observed:        fmt(tcaMs - 45 * 60 * 1000),
-        last_observed_label:  'TCA − 45m',
-        ellipsoid_at_tca_m:   400,
-      },
+      row('SAT-1',   9, 600,  tcaMs - 2 * 3600 * 1000,    'Helios Catalogue'),
+      row('SAT-2-A', 2, 700,  tcaMs - 4 * 3600 * 1000,    'Nadir Systems TLE'),
+      row('SAT-2-B', 7, 4000, tcaMs - 1.5 * 3600 * 1000,  'ArcLight Radar'),
+      row('SAT-2-C', 8, 400,  tcaMs - 45 * 60 * 1000,     'Sentinel-Track OD'),
     ];
   }
 
   // Default scenario — no conjunction context
   return [
-    { id: 'Starlink-4021',          source: 'SpaceTrack',    confidence: 'High', last_observed: fmt(Date.now() - 30 * 60 * 1000), last_observed_label: 'now − 30m', ellipsoid_at_tca_m: null },
-    { id: 'Hubble Space Telescope', source: 'ESA Catalogue', confidence: 'High', last_observed: fmt(Date.now() - 60 * 60 * 1000), last_observed_label: 'now − 1h',  ellipsoid_at_tca_m: null },
-    { id: 'ISS',                    source: 'NASA',          confidence: 'High', last_observed: fmt(Date.now() - 15 * 60 * 1000), last_observed_label: 'now − 15m', ellipsoid_at_tca_m: null },
+    row('Starlink-4021',          9, null, nowMs - 30 * 60 * 1000, 'Helios Catalogue'),
+    row('Hubble Space Telescope', 8, null, nowMs - 60 * 60 * 1000, 'Sentinel-Track OD'),
+    row('ISS',                    9, null, nowMs - 15 * 60 * 1000, 'ArcLight Radar'),
   ];
 }
 
