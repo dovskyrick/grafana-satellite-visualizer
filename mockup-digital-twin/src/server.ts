@@ -10,6 +10,15 @@ import {
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const MAX_DURATION_S = 12 * 60 * 60; // 12 hours cap
 
+// Returns a stable TCA timestamp quantized to 30-minute slots.
+// Every request within the same 30-minute window computes the identical value,
+// keeping Cesium and the Infinity panels perfectly in sync.
+function getTcaMs(): number {
+  const SLOT_MS   = 30 * 60 * 1000;
+  const OFFSET_MS = 90 * 60 * 1000; // TCA = slot + 1h30min
+  return Math.floor(Date.now() / SLOT_MS) * SLOT_MS + OFFSET_MS;
+}
+
 // ---------------------------------------------------------------------------
 // Fixed satellite configs — always the same 3 satellites
 // ---------------------------------------------------------------------------
@@ -141,9 +150,8 @@ const enum ScenarioId {
 // chronologically ascending before concatenation with the forward arc.
 // ---------------------------------------------------------------------------
 function generateScenario1(fromMs: number, toMs: number) {
-  const nowMs          = Date.now();
-  const tcaMs          = nowMs + 1 * 3600 * 1000;   // TCA = now + 1h
-  const lastObservedMs = nowMs - 1 * 3600 * 1000;   // last observed = now − 1h
+  const tcaMs          = getTcaMs();
+  const lastObservedMs = getTcaMs() - 2 * 3600 * 1000; // last observed = TCA − 2h
   const tcaDate          = new Date(tcaMs);
   const lastObservedDate = new Date(lastObservedMs);
 
@@ -253,7 +261,7 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 // σ = 20 minutes; one point per minute across the requested window
 // ---------------------------------------------------------------------------
 function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; risk: number; tca_marker: number | null }> {
-  const tcaMs  = Date.now() + 1 * 3600 * 1000; // TCA = now + 1h, independent of window shape
+  const tcaMs  = getTcaMs();
   const sigma  = 20 * 60 * 1000; // 20 minutes in ms
   const stepMs = 60 * 1000;      // one point per minute
   const points = [];
@@ -279,7 +287,7 @@ function handleHealth(_req: Request, res: Response) {
 
 function handleTcaMarker(_req: Request, res: Response) {
   // Exact millisecond timestamp — no minute snapping — for maximum crosshair precision
-  const tcaMs = Date.now() + 1 * 3600 * 1000;
+  const tcaMs = getTcaMs();
   res.json([{ time: tcaMs, TCA: 1.1 }]);
 }
 
