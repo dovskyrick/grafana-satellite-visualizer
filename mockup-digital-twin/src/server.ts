@@ -280,7 +280,7 @@ function handleHealth(_req: Request, res: Response) {
 function handleTcaMarker(_req: Request, res: Response) {
   // Exact millisecond timestamp — no minute snapping — for maximum crosshair precision
   const tcaMs = Date.now() + 1 * 3600 * 1000;
-  res.json([{ time: tcaMs, value: 1 }]);
+  res.json([{ time: tcaMs, TCA: 1.1 }]);
 }
 
 function handleRisk(req: Request, res: Response) {
