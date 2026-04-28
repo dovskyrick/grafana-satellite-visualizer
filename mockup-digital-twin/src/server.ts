@@ -155,7 +155,7 @@ function generateScenario1(fromMs: number, toMs: number) {
   const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / 60) + 1 : 0;
 
   const COLLISION_SATELLITES = [
-    { id: 'col-sat-a', name: 'SAT-ALPHA', altitude: 550,  inclination: 53, longitudeOfAN: 0, eccentricity: 0   },
+    { id: 'col-sat-a', name: 'SAT-ALPHA', altitude: 549.9,  inclination: 53, longitudeOfAN: 0, eccentricity: 0   },
     { id: 'col-sat-b', name: 'SAT-BETA',  altitude: 550,  inclination: 20, longitudeOfAN: 0, eccentricity: 0.1 },
   ];
 
@@ -252,16 +252,20 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 // Risk curve generation — Gaussian centred on TCA = window midpoint + 1h
 // σ = 20 minutes; one point per minute across the requested window
 // ---------------------------------------------------------------------------
-function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; risk: number }> {
-  const tcaMs   = Date.now() + 1 * 3600 * 1000; // TCA = now + 1h, independent of window shape
-  const sigma   = 20 * 60 * 1000; // 20 minutes in ms
-  const points  = [];
-  const stepMs  = 60 * 1000; // one point per minute
+function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; risk: number; tca_marker: number | null }> {
+  const tcaMs  = Date.now() + 1 * 3600 * 1000; // TCA = now + 1h, independent of window shape
+  const sigma  = 20 * 60 * 1000; // 20 minutes in ms
+  const stepMs = 60 * 1000;      // one point per minute
+  const points = [];
+
+  // Snap TCA to the nearest minute so the marker lands exactly on a grid point
+  const tcaSnapped = Math.round(tcaMs / stepMs) * stepMs;
 
   for (let t = fromMs; t <= toMs; t += stepMs) {
     const diff = t - tcaMs;
     const risk = Math.exp(-(diff * diff) / (2 * sigma * sigma));
-    points.push({ time: t, risk: Math.round(risk * 1000) / 1000 });
+    const tca_marker = t === tcaSnapped ? 1 : null;
+    points.push({ time: t, risk: Math.round(risk * 1000) / 1000, tca_marker });
   }
   return points;
 }
@@ -271,6 +275,12 @@ function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; 
 // ---------------------------------------------------------------------------
 function handleHealth(_req: Request, res: Response) {
   res.json({ status: 'ok' });
+}
+
+function handleTcaMarker(_req: Request, res: Response) {
+  // Exact millisecond timestamp — no minute snapping — for maximum crosshair precision
+  const tcaMs = Date.now() + 1 * 3600 * 1000;
+  res.json([{ time: tcaMs, value: 1 }]);
 }
 
 function handleRisk(req: Request, res: Response) {
@@ -316,6 +326,7 @@ function main() {
   app.get('/health',          handleHealth);
   app.get('/api/satellites',  handleSatellites);
   app.get('/api/risk',        handleRisk);
+  app.get('/api/tca-marker',  handleTcaMarker);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);
