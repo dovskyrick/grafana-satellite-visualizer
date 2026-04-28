@@ -176,6 +176,7 @@ function generateScenario1(fromMs: number, toMs: number) {
     {
       id: 'sat-2b',  name: 'SAT-2-B',
       altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      startAnomaly: 0.02,                                 // ~0.4s offset → slightly off-centre conjunction
       lastObservedMs: tcaMs - 1.5 * 3600 * 1000,         // TCA − 1h30min = ~now
       ellipsoid: { startM: 50, endM: 4000, growthHours: 1.5 },
     },
