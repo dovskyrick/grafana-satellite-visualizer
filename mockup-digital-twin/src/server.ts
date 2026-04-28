@@ -179,6 +179,13 @@ function generateScenario1(fromMs: number, toMs: number) {
       lastObservedMs: tcaMs - 1.5 * 3600 * 1000,         // TCA − 1h30min = ~now
       ellipsoid: { startM: 50, endM: 4000, growthHours: 1.5 },
     },
+    {
+      id: 'sat-2c',  name: 'SAT-2-C',
+      altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      startAnomaly: 0.11,                                 // ~2s ahead in orbit → ~15 km along-track at TCA → no conjunction
+      lastObservedMs: tcaMs - 45 * 60 * 1000,            // TCA − 45min = now + 45min (recent, high confidence)
+      ellipsoid: { startM: 50, endM: 400, growthHours: 0.75 },
+    },
   ];
 
   const frames = COLLISION_SATELLITES.map((cfg, idx) => {
@@ -187,7 +194,7 @@ function generateScenario1(fromMs: number, toMs: number) {
       inclination:      cfg.inclination,
       longitudeOfAN:    cfg.longitudeOfAN,
       eccentricity:     cfg.eccentricity,
-      startAnomaly:     0,
+      startAnomaly:     cfg.startAnomaly ?? 0,
       startTime:        tcaDate,
       lastObservedTime: new Date(cfg.lastObservedMs),
       ellipsoid:        cfg.ellipsoid,
