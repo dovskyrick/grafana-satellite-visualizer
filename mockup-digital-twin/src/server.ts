@@ -150,10 +150,8 @@ const enum ScenarioId {
 // chronologically ascending before concatenation with the forward arc.
 // ---------------------------------------------------------------------------
 function generateScenario1(fromMs: number, toMs: number) {
-  const tcaMs          = getTcaMs();
-  const lastObservedMs = getTcaMs() - 2 * 3600 * 1000; // last observed = TCA − 2h
-  const tcaDate          = new Date(tcaMs);
-  const lastObservedDate = new Date(lastObservedMs);
+  const tcaMs   = getTcaMs();
+  const tcaDate = new Date(tcaMs);
 
   // Size each arc to exactly cover the requested Grafana window.
   // If TCA falls outside the window one side will be 0 and that arc is skipped.
@@ -163,8 +161,16 @@ function generateScenario1(fromMs: number, toMs: number) {
   const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / 60) + 1 : 0;
 
   const COLLISION_SATELLITES = [
-    { id: 'col-sat-a', name: 'SAT-ALPHA', altitude: 549.9,  inclination: 53, longitudeOfAN: 0, eccentricity: 0   },
-    { id: 'col-sat-b', name: 'SAT-BETA',  altitude: 550,  inclination: 20, longitudeOfAN: 0, eccentricity: 0.1 },
+    {
+      id: 'sat-1',   name: 'SAT-1',
+      altitude: 549.9, inclination: 53, longitudeOfAN: 0, eccentricity: 0,
+      lastObservedMs: tcaMs - 2 * 3600 * 1000,            // SAT-1: last observation at TCA − 2h (= now − 30min)
+    },
+    {
+      id: 'sat-2a',  name: 'SAT-2-A',
+      altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      lastObservedMs: tcaMs - 4 * 3600 * 1000,          // SAT-2-A: stale data, TCA − 4h (= now − 2h30min)
+    },
   ];
 
   const frames = COLLISION_SATELLITES.map((cfg, idx) => {
@@ -175,7 +181,7 @@ function generateScenario1(fromMs: number, toMs: number) {
       eccentricity:     cfg.eccentricity,
       startAnomaly:     0,
       startTime:        tcaDate,
-      lastObservedTime: lastObservedDate,
+      lastObservedTime: new Date(cfg.lastObservedMs),
     };
 
     // Backward arc: rewind from TCA back to fromMs, then reverse to ascending timestamps.
@@ -207,7 +213,7 @@ function generateScenario1(fromMs: number, toMs: number) {
     ];
 
     const sensors = buildSensors(idx);
-    return buildSatelliteFrame(cfg.id, cfg.name, trajectory, sensors, lastObservedMs);
+    return buildSatelliteFrame(cfg.id, cfg.name, trajectory, sensors, cfg.lastObservedMs);
   });
 
   return frames;
