@@ -302,10 +302,71 @@ function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; 
 }
 
 // ---------------------------------------------------------------------------
+// Confidence table — static metadata per scenario, time-range independent.
+// last_observed_iso is derived from getTcaMs() so it stays in sync with
+// the Cesium panel and the risk curve across all requests in the same slot.
+// ---------------------------------------------------------------------------
+function generateConfidenceTable(scenario: number) {
+  const tcaMs = getTcaMs();
+
+  const fmt = (ms: number) => new Date(ms).toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+  if (scenario === ScenarioId.CollisionRisk1) {
+    return [
+      {
+        id:                   'SAT-1',
+        source:               'ESA Catalogue',
+        confidence:           'High',
+        last_observed:        fmt(tcaMs - 2 * 3600 * 1000),
+        last_observed_label:  'TCA − 2h',
+        ellipsoid_at_tca_m:   600,
+      },
+      {
+        id:                   'SAT-2-A',
+        source:               'USSPACECOM TLE',
+        confidence:           'Low',
+        last_observed:        fmt(tcaMs - 4 * 3600 * 1000),
+        last_observed_label:  'TCA − 4h',
+        ellipsoid_at_tca_m:   700,
+      },
+      {
+        id:                   'SAT-2-B',
+        source:               'Commercial Radar',
+        confidence:           'Good',
+        last_observed:        fmt(tcaMs - 1.5 * 3600 * 1000),
+        last_observed_label:  'TCA − 1h30m',
+        ellipsoid_at_tca_m:   4000,
+      },
+      {
+        id:                   'SAT-2-C',
+        source:               'ESA OD Service',
+        confidence:           'Good',
+        last_observed:        fmt(tcaMs - 45 * 60 * 1000),
+        last_observed_label:  'TCA − 45m',
+        ellipsoid_at_tca_m:   400,
+      },
+    ];
+  }
+
+  // Default scenario — no conjunction context
+  return [
+    { id: 'Starlink-4021',          source: 'SpaceTrack',    confidence: 'High', last_observed: fmt(Date.now() - 30 * 60 * 1000), last_observed_label: 'now − 30m', ellipsoid_at_tca_m: null },
+    { id: 'Hubble Space Telescope', source: 'ESA Catalogue', confidence: 'High', last_observed: fmt(Date.now() - 60 * 60 * 1000), last_observed_label: 'now − 1h',  ellipsoid_at_tca_m: null },
+    { id: 'ISS',                    source: 'NASA',          confidence: 'High', last_observed: fmt(Date.now() - 15 * 60 * 1000), last_observed_label: 'now − 15m', ellipsoid_at_tca_m: null },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 function handleHealth(_req: Request, res: Response) {
   res.json({ status: 'ok' });
+}
+
+function handleConfidence(req: Request, res: Response) {
+  const scenario = req.query.scenario ? parseInt(req.query.scenario as string) : ScenarioId.Default;
+  console.log(`[${new Date().toISOString()}] GET /api/confidence  scenario=${scenario}`);
+  res.json(generateConfidenceTable(scenario));
 }
 
 function handleTcaMarker(_req: Request, res: Response) {
@@ -354,10 +415,11 @@ function main() {
   app.use(cors());
   app.use(express.json());
 
-  app.get('/health',          handleHealth);
-  app.get('/api/satellites',  handleSatellites);
-  app.get('/api/risk',        handleRisk);
-  app.get('/api/tca-marker',  handleTcaMarker);
+  app.get('/health',           handleHealth);
+  app.get('/api/satellites',   handleSatellites);
+  app.get('/api/risk',         handleRisk);
+  app.get('/api/tca-marker',   handleTcaMarker);
+  app.get('/api/confidence',   handleConfidence);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);
