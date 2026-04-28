@@ -249,10 +249,41 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 }
 
 // ---------------------------------------------------------------------------
+// Risk curve generation — Gaussian centred on TCA = window midpoint + 1h
+// σ = 20 minutes; one point per minute across the requested window
+// ---------------------------------------------------------------------------
+function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; risk: number }> {
+  const tcaMs   = Date.now() + 1 * 3600 * 1000; // TCA = now + 1h, independent of window shape
+  const sigma   = 20 * 60 * 1000; // 20 minutes in ms
+  const points  = [];
+  const stepMs  = 60 * 1000; // one point per minute
+
+  for (let t = fromMs; t <= toMs; t += stepMs) {
+    const diff = t - tcaMs;
+    const risk = Math.exp(-(diff * diff) / (2 * sigma * sigma));
+    points.push({ time: t, risk: Math.round(risk * 1000) / 1000 });
+  }
+  return points;
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 function handleHealth(_req: Request, res: Response) {
   res.json({ status: 'ok' });
+}
+
+function handleRisk(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+
+  console.log(
+    `[${new Date().toISOString()}] GET /api/risk` +
+    `  from=${new Date(fromMs).toISOString()}` +
+    `  to=${new Date(toMs).toISOString()}`
+  );
+
+  res.json(generateRiskCurve(fromMs, toMs));
 }
 
 function handleSatellites(req: Request, res: Response) {
@@ -284,6 +315,7 @@ function main() {
 
   app.get('/health',          handleHealth);
   app.get('/api/satellites',  handleSatellites);
+  app.get('/api/risk',        handleRisk);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);

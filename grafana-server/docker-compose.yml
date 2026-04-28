@@ -1,6 +1,14 @@
 version: '3.8'
 
 services:
+  mockup-twin:
+    build:
+      context: ../mockup-digital-twin
+    container_name: mockup-twin
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana-dev
