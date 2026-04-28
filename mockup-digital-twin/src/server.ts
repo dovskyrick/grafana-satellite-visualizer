@@ -164,12 +164,14 @@ function generateScenario1(fromMs: number, toMs: number) {
     {
       id: 'sat-1',   name: 'SAT-1',
       altitude: 549.9, inclination: 53, longitudeOfAN: 0, eccentricity: 0,
-      lastObservedMs: tcaMs - 2 * 3600 * 1000,            // SAT-1: last observation at TCA − 2h (= now − 30min)
+      lastObservedMs: tcaMs - 2 * 3600 * 1000,           // TCA − 2h = now − 30min
+      ellipsoid: { startM: 50, endM: 600, growthHours: 2 },
     },
     {
       id: 'sat-2a',  name: 'SAT-2-A',
       altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
-      lastObservedMs: tcaMs - 4 * 3600 * 1000,          // SAT-2-A: stale data, TCA − 4h (= now − 2h30min)
+      lastObservedMs: tcaMs - 4 * 3600 * 1000,           // TCA − 4h = now − 2h30min
+      ellipsoid: { startM: 50, endM: 700, growthHours: 4 },
     },
   ];
 
@@ -182,6 +184,7 @@ function generateScenario1(fromMs: number, toMs: number) {
       startAnomaly:     0,
       startTime:        tcaDate,
       lastObservedTime: new Date(cfg.lastObservedMs),
+      ellipsoid:        cfg.ellipsoid,
     };
 
     // Backward arc: rewind from TCA back to fromMs, then reverse to ascending timestamps.

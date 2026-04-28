@@ -17,6 +17,11 @@ export interface OrbitParams {
   reverseTime?: boolean;      // If true, Earth rotation drift is inverted (for backward-propagated arcs)
   timeDirection?: 1 | -1;    // 1 = forward in time (default), -1 = backward (anomaly and timestamps retreat)
   eccentricity?: number;      // 0 = circular (default), >0 = elliptical; altitude becomes periapsis altitude
+  ellipsoid?: {
+    startM: number;       // along-track semi-axis at lastObservedTime (metres)
+    endM: number;         // along-track semi-axis reached after growthHours (metres)
+    growthHours: number;  // hours over which the ellipsoid grows from startM to endM
+  };
 }
 
 export interface TrajectoryPoint {
@@ -42,27 +47,32 @@ const EARTH_ROTATION_DEG_PER_S = 360 / 86164.1;
 /**
  * Generate LVLH ellipsoid semi-axes.
  *
- * Before lastObservedMs: constant small axes representing well-known past position.
- * After  lastObservedMs: monotonically growing axes representing prediction uncertainty.
+ * Before lastObservedMs: constant small axes at startM (representing well-known past position).
+ * After  lastObservedMs: grows quadratically from startM to endM over growthHours.
+ *
+ * Axis ratios are fixed: along : cross : radial = 1 : 0.5 : 0.17
  */
 function generateEllipsoidAxes(
   timeMs: number,
-  lastObservedMs: number
+  lastObservedMs: number,
+  startM = 500,
+  endM = 4500,
+  growthHours = 3
 ): { ell_along: number; ell_cross: number; ell_radial: number } {
-  const PAST_ALONG  = 500;
-  const PAST_CROSS  = 200;
-  const PAST_RADIAL = 100;
-
   if (timeMs <= lastObservedMs) {
-    return { ell_along: PAST_ALONG, ell_cross: PAST_CROSS, ell_radial: PAST_RADIAL };
+    return {
+      ell_along:  startM,
+      ell_cross:  startM * 0.5,
+      ell_radial: startM * 0.17,
+    };
   }
 
   const secondsAfter = (timeMs - lastObservedMs) / 1000;
-  const t = Math.min(secondsAfter / (3 * 3600), 1.0);
-  const base = PAST_ALONG + t * t * 4000;
+  const t = Math.min(secondsAfter / (growthHours * 3600), 1.0);
+  const base = startM + t * t * (endM - startM);
 
   return {
-    ell_along:  base * 1.0,
+    ell_along:  base,
     ell_cross:  base * 0.5,
     ell_radial: base * 0.17,
   };
@@ -101,6 +111,7 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     reverseTime = false,
     timeDirection = 1,
     eccentricity = 0,
+    ellipsoid: ellipsoidParams,
   } = params;
 
   const lastObservedMs = lastObservedTime
@@ -157,7 +168,10 @@ export function generateCircularOrbit(params: OrbitParams): TrajectoryPoint[] {
     // Altitude varies along elliptical orbit; for circular orbits it is constant.
     const altitudeM = (radiusKm - EARTH_RADIUS_KM) * 1000;
 
-    const ellipsoid = generateEllipsoidAxes(timeMs, lastObservedMs);
+    const ellipsoid = generateEllipsoidAxes(
+      timeMs, lastObservedMs,
+      ellipsoidParams?.startM, ellipsoidParams?.endM, ellipsoidParams?.growthHours
+    );
 
     points.push({
       time: timeMs,
