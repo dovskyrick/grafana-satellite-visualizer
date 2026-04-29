@@ -136,7 +136,7 @@ const enum ScenarioId {
   CollisionRisk1       = 1,
   ConfidenceAssessment = 2,
   CommAnomaly          = 3,
-  // 4–5 reserved for future scenarios
+  StarTrackerAnomaly   = 4,
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +413,50 @@ function generateScenario3(fromMs: number, toMs: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 4 — Star Tracker Anomaly
+//
+// Identical orbit to Scenario 3 (same anchor, same circular orbit params).
+// Attitude is a single static quaternion for all trajectory points — no
+// per-frame computation.  The Star Tracker sensor boresight is along +X body
+// (sensor orientation = −90° around Y).
+// First guess: (qx=1, qy=0, qz=0, qs=0).  Swap to other tries from the plan
+// table if the celestial map shows it missing the Sun.
+// ---------------------------------------------------------------------------
+function generateScenario4(fromMs: number, toMs: number) {
+  const anchorMs      = getScenario3AnchorMs(); // same 6-h-before-now snap
+  const fullDurationS = (toMs - anchorMs) / 1000;
+  const fullNumPoints = Math.floor(fullDurationS / 60) + 1;
+  const lastObservedMs = Math.floor(Date.now() / (30 * 60 * 1000)) * (30 * 60 * 1000) - 60 * 60 * 1000;
+
+  const allPoints = generateCircularOrbit({
+    altitude:         550,
+    inclination:      53,
+    longitudeOfAN:    0,
+    startAnomaly:     0,
+    startTime:        new Date(anchorMs),
+    numPoints:        fullNumPoints,
+    duration:         fullDurationS,
+    lastObservedTime: new Date(lastObservedMs),
+    ellipsoid:        { startM: 30, endM: 80, growthHours: (toMs - fromMs) / 3600000 },
+  });
+
+  const points = allPoints
+    .filter(p => p.time >= fromMs)
+    .map(p => ({ ...p, qx: 1, qy: 0, qz: 0, qs: 0 })); // static attitude — try 1
+
+  const starTrackerSensor = [{
+    id:          'sat-st-x',
+    name:        'Star Tracker',
+    fov:         20,
+    orientation: { qx: 0, qy: -0.7071, qz: 0, qw: 0.7071 }, // boresight = +X body
+    color:       '#FFD700',
+  }];
+
+  const satFrame = buildSatelliteFrame('sat-st', 'SAT-ST', points, starTrackerSensor, lastObservedMs);
+  return [satFrame];
+}
+
+// ---------------------------------------------------------------------------
 // Core generation — startTime comes from Grafana's "from", duration capped at 12h
 // ---------------------------------------------------------------------------
 function generateTrajectory(fromMs: number, toMs: number, durationSeconds: number, scenario: number) {
@@ -458,6 +502,10 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 
   if (scenario === ScenarioId.CommAnomaly) {
     return generateScenario3(fromMs, toMs); // includes its own gsFrame
+  }
+
+  if (scenario === ScenarioId.StarTrackerAnomaly) {
+    return generateScenario4(fromMs, toMs);
   }
 
   return [...satellitesData, groundStationsFrame];
