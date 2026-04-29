@@ -357,7 +357,9 @@ function generateScenario3(fromMs: number, toMs: number) {
   const anchorMs       = getScenario3AnchorMs();
   const fullDurationS  = (toMs - anchorMs) / 1000;
   const fullNumPoints  = Math.floor(fullDurationS / 60) + 1;
-  const lastObservedMs = fromMs + ((toMs - fromMs) / 2);
+  // Pin lastObservedTime to now−1h snapped to 30-min slots so the solid/dashed
+  // trajectory split stays stable across reloads and Grafana window changes.
+  const lastObservedMs = Math.floor(Date.now() / (30 * 60 * 1000)) * (30 * 60 * 1000) - 60 * 60 * 1000;
 
   const allPoints = generateCircularOrbit({
     altitude:         550,
