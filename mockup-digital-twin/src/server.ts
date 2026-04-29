@@ -609,7 +609,11 @@ function generateElevation(fromMs: number, toMs: number): Array<{ time: number; 
 }
 
 function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number; link_healthy: number }> {
-  const points = computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
+  // Always compute from the stable anchor so window counting is relative to the
+  // full orbit history — not the zoomed Grafana window. This prevents the second
+  // contact window from being misidentified as the first when the user zooms in.
+  const anchorMs = getScenario3AnchorMs();
+  const points   = computeLinkHealthPoints(anchorMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
 
   // Find all contact windows (contiguous runs of link_healthy === 100).
   const windows: Array<{ startIdx: number; endIdx: number }> = [];
@@ -629,15 +633,16 @@ function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number;
   // Inject anomaly into the middle third of the second contact window.
   if (windows.length >= 2) {
     const { startIdx, endIdx } = windows[1];
-    const len        = endIdx - startIdx + 1;
-    const anomStart  = startIdx + Math.floor(len / 3);
-    const anomEnd    = startIdx + Math.floor((2 * len) / 3);
+    const len       = endIdx - startIdx + 1;
+    const anomStart = startIdx + Math.floor(len / 3);
+    const anomEnd   = startIdx + Math.floor((2 * len) / 3);
     for (let i = anomStart; i <= anomEnd; i++) {
       points[i].link_healthy = 0;
     }
   }
 
-  return points;
+  // Return only the slice the caller actually requested.
+  return points.filter(p => p.time >= fromMs);
 }
 
 // ---------------------------------------------------------------------------
