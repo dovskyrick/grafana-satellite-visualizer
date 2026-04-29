@@ -942,17 +942,17 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
         // STEP 3: per-frame GS-pointing orientation override.
         //
-        // Conventions (verified empirically):
+        // Frame convention used by the manual cone-rendering and footprint code:
         //   - Positions returned by SampledPositionProperty.getValue are ECEF.
-        //   - Cesium entity orientation quaternions are in ICRF (inertial).
-        //   - Sensor cone direction = Matrix3.fromQuaternion(q) · [0,0,1]
-        //     (i.e. the third column of the rotation matrix corresponding to q).
+        //   - Sensor cone direction is computed as Matrix3.fromQuaternion(q) · [0,0,1]
+        //     and added to the ECEF satellite position with NO frame conversion
+        //     (see CesiumEntityRenderers.tsx and utils/projections.ts).
+        //   - Therefore the orientation quaternion must encode a body→ECEF rotation
+        //     so that R · [0,0,1] is the antenna boresight expressed in ECEF.
         //
-        // Approach: build the body→world rotation R in ECEF (where the geometry is
-        // simple), then convert it to ICRF with a single matrix multiply, then to
-        // a quaternion. R is constructed via Matrix3.fromColumnMajorArray so the
-        // column ordering is unambiguous: column 2 must equal the SAT→GS unit
-        // vector so that R·[0,0,1] points the antenna at the GS.
+        // (Cesium's own ModelVisualizer interprets Entity.orientation in its local
+        // frame, which for a FIXED-frame position is also ECEF, so the model and
+        // the cone agree.)
         if (options.scenarioId === ScenarioId.Scenario3 && parsedGroundStations.length > 0) {
           const targetGs = parsedGroundStations[0];
           const gsEcef   = Cartesian3.fromDegrees(targetGs.longitude, targetGs.latitude, targetGs.altitude);
@@ -961,9 +961,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             (sat as any).orientation = new CallbackProperty((time: JulianDate) => {
               const satEcef = sat.position.getValue(time);
               if (!satEcef) { return Quaternion.IDENTITY; }
-
-              const fixedToIcrf = Transforms.computeFixedToIcrfMatrix(time, new Matrix3());
-              if (!fixedToIcrf) { return Quaternion.IDENTITY; }
 
               // Body +Z target (antenna boresight) in ECEF: SAT → GS.
               const zEcef = Cartesian3.normalize(
@@ -988,18 +985,16 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 new Cartesian3()
               );
 
-              // Body→ECEF rotation as a column-major flat array so that the three
-              // basis vectors land in columns 0, 1, 2 respectively.
+              // Body→ECEF rotation as a column-major flat array so the three basis
+              // vectors land in columns 0, 1, 2 respectively. Column 2 = zEcef
+              // means R · [0,0,1] = zEcef = SAT→GS direction in ECEF. ✓
               const rEcef = Matrix3.fromColumnMajorArray([
                 xEcef.x, xEcef.y, xEcef.z,
                 yEcef.x, yEcef.y, yEcef.z,
                 zEcef.x, zEcef.y, zEcef.z,
               ]);
 
-              // Body→ICRF = (ECEF→ICRF) · (Body→ECEF).
-              const rIcrf = Matrix3.multiply(fixedToIcrf, rEcef, new Matrix3());
-
-              return Quaternion.fromRotationMatrix(rIcrf);
+              return Quaternion.fromRotationMatrix(rEcef);
             }, false);
           });
         }
