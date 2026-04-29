@@ -564,11 +564,13 @@ function llaToEcef(lonDeg: number, latDeg: number, altM: number): [number, numbe
 
 const LINK_MASK_DEG = 5; // minimum elevation angle for a healthy link
 
+const LINK_HEALTH_STEP_S = 30; // one point every 30 seconds
+
 // Shared computation for both link-health endpoints.
 function computeLinkHealthPoints(fromMs: number, toMs: number) {
   const anchorMs      = getScenario3AnchorMs();
   const fullDurationS = (toMs - anchorMs) / 1000;
-  const fullNumPoints = Math.floor(fullDurationS / 60) + 1;
+  const fullNumPoints = Math.floor(fullDurationS / LINK_HEALTH_STEP_S) + 1;
   const dummyLastObs  = new Date(fromMs + (toMs - fromMs) / 2);
 
   const allPoints = generateCircularOrbit({
@@ -607,7 +609,35 @@ function generateElevation(fromMs: number, toMs: number): Array<{ time: number; 
 }
 
 function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number; link_healthy: number }> {
-  return computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
+  const points = computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
+
+  // Find all contact windows (contiguous runs of link_healthy === 100).
+  const windows: Array<{ startIdx: number; endIdx: number }> = [];
+  let winStart: number | null = null;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].link_healthy === 100 && winStart === null) {
+      winStart = i;
+    } else if (points[i].link_healthy === 0 && winStart !== null) {
+      windows.push({ startIdx: winStart, endIdx: i - 1 });
+      winStart = null;
+    }
+  }
+  if (winStart !== null) {
+    windows.push({ startIdx: winStart, endIdx: points.length - 1 });
+  }
+
+  // Inject anomaly into the middle third of the second contact window.
+  if (windows.length >= 2) {
+    const { startIdx, endIdx } = windows[1];
+    const len        = endIdx - startIdx + 1;
+    const anomStart  = startIdx + Math.floor(len / 3);
+    const anomEnd    = startIdx + Math.floor((2 * len) / 3);
+    for (let i = anomStart; i <= anomEnd; i++) {
+      points[i].link_healthy = 0;
+    }
+  }
+
+  return points;
 }
 
 // ---------------------------------------------------------------------------
