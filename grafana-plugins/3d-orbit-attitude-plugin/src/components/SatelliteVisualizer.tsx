@@ -1001,15 +1001,20 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
               const gsQuat = Quaternion.fromRotationMatrix(rEcef);
 
-              // During the anomaly window apply a 20° tilt around body X so the
-              // antenna visibly drifts off the GS, matching the link_healthy=0 gap.
+              // During the anomaly window smoothly ramp a 20° tilt around body X
+              // in and back out — triangle profile matching the comm_anomaly series.
               const win = anomalyWindowRef.current;
               if (win) {
                 const tMs = JulianDate.toDate(time).getTime();
                 if (tMs >= win.start && tMs <= win.end) {
+                  const span = win.end - win.start;
+                  const mid  = win.start + span / 2;
+                  // t goes 0→1 at the midpoint then 1→0 at the end
+                  const t = 1 - Math.abs((tMs - mid) / (span / 2));
+                  const tiltAngle = t * 20 * Math.PI / 180;
                   const tiltQuat = Quaternion.fromAxisAngle(
                     new Cartesian3(1, 0, 0),
-                    20 * Math.PI / 180,
+                    tiltAngle,
                     new Quaternion()
                   );
                   return Quaternion.multiply(gsQuat, tiltQuat, new Quaternion());
