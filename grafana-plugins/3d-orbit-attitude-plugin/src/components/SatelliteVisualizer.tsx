@@ -1671,7 +1671,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               
               {/* Sensors Section - Show sensors of tracked satellite */}
               {/* Hidden in Earth Focus mode when FOV Footprint is off (sensors invisible, colors irrelevant) */}
-              {trackedSatelliteId && !(selectedMode === 'earth' && !options.showFOVFootprint) && (() => {
+              {trackedSatelliteId && options.showSensorCones && !(selectedMode === 'earth' && !options.showFOVFootprint) && (() => {
                 const trackedSat = satellites.find(s => s.id === trackedSatelliteId);
                 if (!trackedSat || trackedSat.sensors.length === 0) {
                   return null;
