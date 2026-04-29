@@ -442,13 +442,13 @@ function generateScenario4(fromMs: number, toMs: number) {
 
   const points = allPoints
     .filter(p => p.time >= fromMs)
-    .map(p => ({ ...p, qx: 1, qy: 0, qz: 0, qs: 0 })); // static attitude — try 1
+    .map(p => ({ ...p, qx: 1, qy: 1, qz: 0, qs: 0 })); // static attitude — try 1
 
   const starTrackerSensor = [{
     id:          'sat-st-x',
     name:        'Star Tracker',
     fov:         20,
-    orientation: { qx: 0, qy: -0.7071, qz: 0, qw: 0.7071 }, // boresight = +X body
+    orientation: { qx: 1, qy: 0, qz: 0, qw: 0 }, // boresight = +X body
     color:       '#FFD700',
   }];
 
