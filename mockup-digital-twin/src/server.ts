@@ -471,7 +471,7 @@ function handleConfidenceUpdate(req: Request, res: Response) {
     res.status(400).json({ error: 'id and confidence are required' });
     return;
   }
-  const value = Math.round(Math.min(10, Math.max(0, Number(confidence))));
+  const value = Math.round(Math.min(10, Math.max(0, Number(confidence))) * 100) / 100;
   scenario2ConfidenceStore[id] = value;
   console.log(`[${new Date().toISOString()}] POST /api/confidence  id=${id}  confidence=${value}`);
   res.json({ ok: true, id, confidence: value });
