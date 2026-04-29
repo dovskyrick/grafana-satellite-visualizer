@@ -135,7 +135,8 @@ const enum ScenarioId {
   Default              = 0,
   CollisionRisk1       = 1,
   ConfidenceAssessment = 2,
-  // 3–5 reserved for future scenarios
+  CommAnomaly          = 3,
+  // 4–5 reserved for future scenarios
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +323,56 @@ function generateScenario2(fromMs: number, toMs: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 3 — Communication Anomaly
+//
+// Single satellite on a 53° circular orbit (same as SAT-1) with one "Antenna"
+// sensor pointing along the +Z body axis.  A single fictional ground station
+// is returned.  The plugin will override the satellite orientation to track
+// the GS in real time; this function only provides the trajectory data.
+// ---------------------------------------------------------------------------
+const SCENARIO3_GS = {
+  id: 'gs-lisbon', name: 'Orbital GS Lisbon',
+  latitude: 38.72, longitude: -9.14, altitude: 95,
+};
+
+function generateScenario3(fromMs: number, toMs: number) {
+  const startTime      = new Date(fromMs);
+  const durationS      = (toMs - fromMs) / 1000;
+  const numPoints      = Math.floor(durationS / 60) + 1;
+  const lastObservedMs = fromMs + (durationS / 2) * 1000;
+
+  const points = generateCircularOrbit({
+    altitude:        550,
+    inclination:     53,
+    longitudeOfAN:   0,
+    startAnomaly:    0,
+    startTime,
+    numPoints,
+    duration:        durationS,
+    lastObservedTime: new Date(lastObservedMs),
+    ellipsoid:       { startM: 30, endM: 80, growthHours: durationS / 3600 },
+  });
+
+  const antennaSensor = [{
+    id:          'sat-comm-antenna',
+    name:        'Antenna',
+    fov:         5,
+    orientation: { qx: 0, qy: 0, qz: 0, qw: 1 }, // identity → points along +Z body
+    color:       '#00BFFF',
+  }];
+
+  const satFrame    = buildSatelliteFrame('sat-comm', 'SAT-COMM', points, antennaSensor, lastObservedMs);
+  const gsFrame     = {
+    type: 'groundStations',
+    meta: { custom: { groundStations: [SCENARIO3_GS] } },
+    columns: [],
+    rows: [],
+  };
+
+  return [satFrame, gsFrame];
+}
+
+// ---------------------------------------------------------------------------
 // Core generation — startTime comes from Grafana's "from", duration capped at 12h
 // ---------------------------------------------------------------------------
 function generateTrajectory(fromMs: number, toMs: number, durationSeconds: number, scenario: number) {
@@ -363,6 +414,10 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 
   if (scenario === ScenarioId.ConfidenceAssessment) {
     return [...generateScenario2(fromMs, toMs), groundStationsFrame];
+  }
+
+  if (scenario === ScenarioId.CommAnomaly) {
+    return generateScenario3(fromMs, toMs); // includes its own gsFrame
   }
 
   return [...satellitesData, groundStationsFrame];

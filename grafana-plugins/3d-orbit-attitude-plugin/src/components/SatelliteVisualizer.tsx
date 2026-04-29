@@ -85,6 +85,7 @@ import {
   Matrix3,
   Quaternion,
   SampledProperty,
+  ConstantProperty,
   CallbackProperty,
   Simon1994PlanetaryPositions,
   SceneMode,
@@ -927,6 +928,18 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     function applyFrames(frames: DataFrame[], panelDataForGs: typeof data) {
       try {
         const parsedSatellites = parseSatellites(frames, options);
+
+        // Scenario 3 — Step 3 checkpoint: force a fixed 90° Y-rotation on all
+        // satellites so we can visually confirm the orientation-override mechanism
+        // works before wiring up the per-frame GS-pointing computation (Step 4).
+        // 90° around Y: q = (0, sin45°, 0, cos45°) = (0, 0.7071, 0, 0.7071)
+        if (options.scenarioId === ScenarioId.Scenario3) {
+          const fixedQ = new Quaternion(0, 0.7071, 0, 0.7071);
+          parsedSatellites.forEach(sat => {
+            (sat as any).orientation = new ConstantProperty(fixedQ);
+          });
+        }
+
         setSatellites(parsedSatellites);
         const parsedGroundStations = parseGroundStations(panelDataForGs);
         setGroundStations(parsedGroundStations);
