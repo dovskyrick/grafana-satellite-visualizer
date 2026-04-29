@@ -335,23 +335,45 @@ const SCENARIO3_GS = {
   latitude: 38.72, longitude: -9.14, altitude: 95,
 };
 
-function generateScenario3(fromMs: number, toMs: number) {
-  const startTime      = new Date(fromMs);
-  const durationS      = (toMs - fromMs) / 1000;
-  const numPoints      = Math.floor(durationS / 60) + 1;
-  const lastObservedMs = fromMs + (durationS / 2) * 1000;
+// Returns a stable orbit anchor snapped to the nearest 30-minute boundary
+// minus 6 hours — identical logic to getTcaMs so all scenarios stay in sync.
+// Every request within the same 30-minute window produces the same anchor,
+// keeping the orbit phase consistent across reloads and auto-refreshes.
+function getScenario3AnchorMs(): number {
+  const SLOT_MS    = 30 * 60 * 1000;
+  const OFFSET_MS  = 6  * 60 * 60 * 1000; // start orbit 6 h before the slot
+  return Math.floor(Date.now() / SLOT_MS) * SLOT_MS - OFFSET_MS;
+}
 
-  const basePoints = generateCircularOrbit({
-    altitude:        550,
-    inclination:     53,
-    longitudeOfAN:   0,
-    startAnomaly:    0,
-    startTime,
-    numPoints,
-    duration:        durationS,
+function generateScenario3(fromMs: number, toMs: number) {
+  // Always start propagation from the stable anchor (now−6h snapped to 30-min
+  // slots) so that the satellite's ECEF position at any given UTC time is
+  // identical across all reloads and auto-refreshes. Earth-rotation correction
+  // in orbit-math is relative to startTime, so startTime must equal the anchor.
+  //
+  // We generate the full arc from anchor → toMs, then discard points that fall
+  // before fromMs. Grafana only requested [fromMs, toMs] but the extra points
+  // (anchor → fromMs) are necessary to get the Earth-rotation offset right.
+  const anchorMs       = getScenario3AnchorMs();
+  const fullDurationS  = (toMs - anchorMs) / 1000;
+  const fullNumPoints  = Math.floor(fullDurationS / 60) + 1;
+  const lastObservedMs = fromMs + ((toMs - fromMs) / 2);
+
+  const allPoints = generateCircularOrbit({
+    altitude:         550,
+    inclination:      53,
+    longitudeOfAN:    0,
+    startAnomaly:     0,
+    startTime:        new Date(anchorMs),
+    numPoints:        fullNumPoints,
+    duration:         fullDurationS,
     lastObservedTime: new Date(lastObservedMs),
-    ellipsoid:       { startM: 30, endM: 80, growthHours: durationS / 3600 },
+    ellipsoid:        { startM: 30, endM: 80, growthHours: (toMs - fromMs) / 3600000 },
   });
+
+  // Keep only the points that fall within the Grafana-requested window.
+  const basePoints = allPoints.filter(p => p.time >= fromMs);
+  const numPoints  = basePoints.length;
 
   // Apply a slow Z-axis rotation: 3 full spins over the entire trajectory.
   // Quaternion for angle θ around Z: (0, 0, sin(θ/2), cos(θ/2)).
