@@ -341,7 +341,7 @@ function generateScenario3(fromMs: number, toMs: number) {
   const numPoints      = Math.floor(durationS / 60) + 1;
   const lastObservedMs = fromMs + (durationS / 2) * 1000;
 
-  const points = generateCircularOrbit({
+  const basePoints = generateCircularOrbit({
     altitude:        550,
     inclination:     53,
     longitudeOfAN:   0,
@@ -351,6 +351,22 @@ function generateScenario3(fromMs: number, toMs: number) {
     duration:        durationS,
     lastObservedTime: new Date(lastObservedMs),
     ellipsoid:       { startM: 30, endM: 80, growthHours: durationS / 3600 },
+  });
+
+  // Apply a slow Z-axis rotation: 3 full spins over the entire trajectory.
+  // Quaternion for angle θ around Z: (0, 0, sin(θ/2), cos(θ/2)).
+  // This makes the spin clearly recognisable in Cesium so the raw server
+  // attitude can be verified before the plugin orientation override is enabled.
+  const TWO_PI = 2 * Math.PI;
+  const points = basePoints.map((p, i) => {
+    const angle = (i / Math.max(numPoints - 1, 1)) * TWO_PI * 3; // 3 rotations
+    return {
+      ...p,
+      qx: 0,
+      qy: 0,
+      qz: Math.sin(angle / 2),
+      qs: Math.cos(angle / 2),
+    };
   });
 
   const antennaSensor = [{

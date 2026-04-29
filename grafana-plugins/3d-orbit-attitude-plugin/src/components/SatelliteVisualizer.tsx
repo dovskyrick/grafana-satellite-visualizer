@@ -85,7 +85,6 @@ import {
   Matrix3,
   Quaternion,
   SampledProperty,
-  ConstantProperty,
   CallbackProperty,
   Simon1994PlanetaryPositions,
   SceneMode,
@@ -927,21 +926,29 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
     function applyFrames(frames: DataFrame[], panelDataForGs: typeof data) {
       try {
-        const parsedSatellites = parseSatellites(frames, options);
+        const parsedSatellites    = parseSatellites(frames, options);
+        const parsedGroundStations = parseGroundStations(panelDataForGs);
 
-        // Scenario 3 — Step 3 checkpoint: force a fixed 90° Y-rotation on all
-        // satellites so we can visually confirm the orientation-override mechanism
-        // works before wiring up the per-frame GS-pointing computation (Step 4).
-        // 90° around Y: q = (0, sin45°, 0, cos45°) = (0, 0.7071, 0, 0.7071)
+        // Scenario 3 — orientation override staging area.
+        //
+        // STEP 1 (current): raw server attitude shown — Z-axis slow spin from server.
+        //   No override applied here; the SampledProperty from the parser is used directly.
+        //   Verify in Cesium that SAT-COMM's body axes / Antenna cone slowly spins around Z.
+        //
+        // STEP 2 (next): uncomment the fixed-quaternion block below to confirm the
+        //   override mechanism works before enabling GS-pointing maths.
+        //
+        // STEP 3 (final): replace with CallbackProperty GS-pointing computation.
+
+        // STEP 2: fixed 90° Y-rotation override — confirms override mechanism works
         if (options.scenarioId === ScenarioId.Scenario3) {
-          const fixedQ = new Quaternion(0, 0.7071, 0, 0.7071);
+          const fixedQ = new Quaternion(0, 0.7071, 0, 0.7071); // 90° around Y in ICRF
           parsedSatellites.forEach(sat => {
-            (sat as any).orientation = new ConstantProperty(fixedQ);
+            (sat as any).orientation = new CallbackProperty((_time: JulianDate) => fixedQ, false);
           });
         }
 
         setSatellites(parsedSatellites);
-        const parsedGroundStations = parseGroundStations(panelDataForGs);
         setGroundStations(parsedGroundStations);
         console.log(`📡 Parsed ${parsedGroundStations.length} ground station(s)`);
         if (parsedSatellites.length > 0) {
