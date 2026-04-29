@@ -605,17 +605,15 @@ function computeLinkHealthPoints(fromMs: number, toMs: number) {
 }
 
 function generateElevation(fromMs: number, toMs: number): Array<{ time: number; elevation_deg: number }> {
-  return computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, elevation_deg: p.elevation_deg }));
+  return computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, elevation_deg: Math.max(0, p.elevation_deg) }));
 }
 
-function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number; link_healthy: number }> {
-  // Always compute from the stable anchor so window counting is relative to the
-  // full orbit history — not the zoomed Grafana window. This prevents the second
-  // contact window from being misidentified as the first when the user zooms in.
-  const anchorMs = getScenario3AnchorMs();
-  const points   = computeLinkHealthPoints(anchorMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
-
-  // Find all contact windows (contiguous runs of link_healthy === 100).
+// Returns a helper giving the anomaly window boundaries (indices into a full
+// anchor-to-toMs points array) so both generateLinkStatus and
+// generateCommAnomaly use identical window detection.
+function findAnomalyWindow(
+  points: Array<{ link_healthy: number }>
+): { anomStart: number; anomEnd: number } | null {
   const windows: Array<{ startIdx: number; endIdx: number }> = [];
   let winStart: number | null = null;
   for (let i = 0; i < points.length; i++) {
@@ -629,19 +627,48 @@ function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number;
   if (winStart !== null) {
     windows.push({ startIdx: winStart, endIdx: points.length - 1 });
   }
+  if (windows.length < 2) { return null; }
+  const { startIdx, endIdx } = windows[1];
+  const len = endIdx - startIdx + 1;
+  return {
+    anomStart: startIdx + Math.floor(len / 3),
+    anomEnd:   startIdx + Math.floor((2 * len) / 3),
+  };
+}
+
+function generateCommAnomaly(fromMs: number, toMs: number): Array<{ time: number; comm_anomaly: number }> {
+  const anchorMs = getScenario3AnchorMs();
+  const points   = computeLinkHealthPoints(anchorMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy, comm_anomaly: 0 }));
+
+  const anomaly = findAnomalyWindow(points);
+  if (anomaly) {
+    const { anomStart, anomEnd } = anomaly;
+    const len = anomEnd - anomStart + 1;
+    const mid = (anomStart + anomEnd) / 2;
+    for (let i = anomStart; i <= anomEnd; i++) {
+      // Triangle: peaks at 130 in the centre, tapers to 0 at both edges.
+      const t = 1 - Math.abs((i - mid) / (len / 2));
+      points[i].comm_anomaly = Math.round(130 * t * 100) / 100;
+    }
+  }
+
+  return points.filter(p => p.time >= fromMs).map(p => ({ time: p.time, comm_anomaly: p.comm_anomaly }));
+}
+
+function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number; link_healthy: number }> {
+  // Always compute from the stable anchor so window counting is relative to the
+  // full orbit history — not the zoomed Grafana window.
+  const anchorMs = getScenario3AnchorMs();
+  const points   = computeLinkHealthPoints(anchorMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
 
   // Inject anomaly into the middle third of the second contact window.
-  if (windows.length >= 2) {
-    const { startIdx, endIdx } = windows[1];
-    const len       = endIdx - startIdx + 1;
-    const anomStart = startIdx + Math.floor(len / 3);
-    const anomEnd   = startIdx + Math.floor((2 * len) / 3);
-    for (let i = anomStart; i <= anomEnd; i++) {
+  const anomaly = findAnomalyWindow(points);
+  if (anomaly) {
+    for (let i = anomaly.anomStart; i <= anomaly.anomEnd; i++) {
       points[i].link_healthy = 0;
     }
   }
 
-  // Return only the slice the caller actually requested.
   return points.filter(p => p.time >= fromMs);
 }
 
@@ -703,6 +730,13 @@ function handleLinkStatus(req: Request, res: Response) {
   res.json(generateLinkStatus(fromMs, toMs));
 }
 
+function handleCommAnomaly(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/link-anomaly  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateCommAnomaly(fromMs, toMs));
+}
+
 function handleSatellites(req: Request, res: Response) {
   const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
   const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
@@ -738,6 +772,7 @@ function main() {
   app.post('/api/confidence',   handleConfidenceUpdate);
   app.get('/api/link-elevation', handleElevation);
   app.get('/api/link-status',    handleLinkStatus);
+  app.get('/api/link-anomaly',   handleCommAnomaly);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);
