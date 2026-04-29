@@ -672,6 +672,20 @@ function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number;
   return points.filter(p => p.time >= fromMs);
 }
 
+function generateAnomalyWindow(): { start: number; end: number } | null {
+  // Compute over a 12-hour horizon from the anchor so there is always enough
+  // orbit to contain at least two contact windows.
+  const anchorMs = getScenario3AnchorMs();
+  const toMs     = anchorMs + MAX_DURATION_S * 1000;
+  const points   = computeLinkHealthPoints(anchorMs, toMs);
+  const anomaly  = findAnomalyWindow(points);
+  if (!anomaly) { return null; }
+  return {
+    start: points[anomaly.anomStart].time,
+    end:   points[anomaly.anomEnd].time,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
@@ -737,6 +751,16 @@ function handleCommAnomaly(req: Request, res: Response) {
   res.json(generateCommAnomaly(fromMs, toMs));
 }
 
+function handleAnomalyWindow(_req: Request, res: Response) {
+  console.log(`[${new Date().toISOString()}] GET /api/link-anomaly-window`);
+  const window = generateAnomalyWindow();
+  if (!window) {
+    res.status(404).json({ error: 'No anomaly window found in current 12h horizon' });
+    return;
+  }
+  res.json(window);
+}
+
 function handleSatellites(req: Request, res: Response) {
   const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
   const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
@@ -770,9 +794,10 @@ function main() {
   app.get('/api/tca-marker',    handleTcaMarker);
   app.get('/api/confidence',    handleConfidence);
   app.post('/api/confidence',   handleConfidenceUpdate);
-  app.get('/api/link-elevation', handleElevation);
-  app.get('/api/link-status',    handleLinkStatus);
-  app.get('/api/link-anomaly',   handleCommAnomaly);
+  app.get('/api/link-elevation',       handleElevation);
+  app.get('/api/link-status',          handleLinkStatus);
+  app.get('/api/link-anomaly',         handleCommAnomaly);
+  app.get('/api/link-anomaly-window',  handleAnomalyWindow);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);

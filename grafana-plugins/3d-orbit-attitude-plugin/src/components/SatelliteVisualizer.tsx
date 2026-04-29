@@ -294,6 +294,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   const satelliteModalRef = React.useRef<HTMLDivElement>(null);
   const groundStationModalRef = React.useRef<HTMLDivElement>(null);
 
+  // Scenario 3 attitude anomaly window fetched once from the server.
+  // Stored in a ref so the CallbackProperty closure can read it without
+  // triggering re-renders on every satellite frame.
+  const anomalyWindowRef = React.useRef<{ start: number; end: number } | null>(null);
+
   // Attitude vector configurations — colors driven by frameColors state (legend color picker)
   // Default fallbacks match the initial frameColors values so startup appearance is identical.
   const attitudeVectors = React.useMemo(() => {
@@ -994,7 +999,24 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 zEcef.x, zEcef.y, zEcef.z,
               ]);
 
-              return Quaternion.fromRotationMatrix(rEcef);
+              const gsQuat = Quaternion.fromRotationMatrix(rEcef);
+
+              // During the anomaly window apply a 20° tilt around body X so the
+              // antenna visibly drifts off the GS, matching the link_healthy=0 gap.
+              const win = anomalyWindowRef.current;
+              if (win) {
+                const tMs = JulianDate.toDate(time).getTime();
+                if (tMs >= win.start && tMs <= win.end) {
+                  const tiltQuat = Quaternion.fromAxisAngle(
+                    new Cartesian3(1, 0, 0),
+                    20 * Math.PI / 180,
+                    new Quaternion()
+                  );
+                  return Quaternion.multiply(gsQuat, tiltQuat, new Quaternion());
+                }
+              }
+
+              return gsQuat;
             }, false);
           });
         }
@@ -1028,6 +1050,20 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       const from = timeRange.from.valueOf();
       const to = timeRange.to.valueOf();
       const url = `${options.digitalTwinUrl}/api/satellites?from=${from}&to=${to}&scenario=${options.scenarioId ?? 0}`;
+
+      // Fetch the anomaly window for Scenario 3 so the attitude CallbackProperty
+      // can apply a tilt offset during the broken contact interval.
+      if (options.scenarioId === ScenarioId.Scenario3) {
+        fetch(`${options.digitalTwinUrl}/api/link-anomaly-window`)
+          .then(r => r.ok ? r.json() : null)
+          .then((win: { start: number; end: number } | null) => {
+            anomalyWindowRef.current = win;
+            console.log(`📡 Anomaly window: ${win ? new Date(win.start).toISOString() + ' → ' + new Date(win.end).toISOString() : 'none'}`);
+          })
+          .catch(() => { anomalyWindowRef.current = null; });
+      } else {
+        anomalyWindowRef.current = null;
+      }
 
       fetch(url)
         .then(r => {
