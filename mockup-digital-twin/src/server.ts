@@ -546,6 +546,71 @@ function generateConfidenceTable(scenario: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Communication link health — Scenario 3
+// ---------------------------------------------------------------------------
+
+// Geodetic (lon°, lat°, altM) → ECEF (km).  Spherical approximation; error
+// is < 0.2% vs full WGS84, well within the needs of a fictional scenario.
+function llaToEcef(lonDeg: number, latDeg: number, altM: number): [number, number, number] {
+  const R   = 6371 + altM / 1000; // km
+  const lat = latDeg * Math.PI / 180;
+  const lon = lonDeg * Math.PI / 180;
+  return [
+    R * Math.cos(lat) * Math.cos(lon),
+    R * Math.cos(lat) * Math.sin(lon),
+    R * Math.sin(lat),
+  ];
+}
+
+const LINK_MASK_DEG = 5; // minimum elevation angle for a healthy link
+
+// Shared computation for both link-health endpoints.
+function computeLinkHealthPoints(fromMs: number, toMs: number) {
+  const anchorMs      = getScenario3AnchorMs();
+  const fullDurationS = (toMs - anchorMs) / 1000;
+  const fullNumPoints = Math.floor(fullDurationS / 60) + 1;
+  const dummyLastObs  = new Date(fromMs + (toMs - fromMs) / 2);
+
+  const allPoints = generateCircularOrbit({
+    altitude:         550,
+    inclination:      53,
+    longitudeOfAN:    0,
+    startAnomaly:     0,
+    startTime:        new Date(anchorMs),
+    numPoints:        fullNumPoints,
+    duration:         fullDurationS,
+    lastObservedTime: dummyLastObs,
+  });
+
+  const [gsX, gsY, gsZ] = llaToEcef(SCENARIO3_GS.longitude, SCENARIO3_GS.latitude, SCENARIO3_GS.altitude);
+  const gsMag = Math.sqrt(gsX * gsX + gsY * gsY + gsZ * gsZ);
+  const [gnX, gnY, gnZ] = [gsX / gsMag, gsY / gsMag, gsZ / gsMag];
+
+  return allPoints
+    .filter(p => p.time >= fromMs)
+    .map(p => {
+      const [sX, sY, sZ] = llaToEcef(p.longitude, p.latitude, p.altitude);
+      const dx = sX - gsX, dy = sY - gsY, dz = sZ - gsZ;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const dot  = (dx * gnX + dy * gnY + dz * gnZ) / dist;
+      const elevDeg = Math.asin(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
+      return {
+        time:         p.time,
+        elevation_deg: Math.round(elevDeg * 100) / 100,
+        link_healthy:  elevDeg >= LINK_MASK_DEG ? 100 : 0,
+      };
+    });
+}
+
+function generateElevation(fromMs: number, toMs: number): Array<{ time: number; elevation_deg: number }> {
+  return computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, elevation_deg: p.elevation_deg }));
+}
+
+function generateLinkStatus(fromMs: number, toMs: number): Array<{ time: number; link_healthy: number }> {
+  return computeLinkHealthPoints(fromMs, toMs).map(p => ({ time: p.time, link_healthy: p.link_healthy }));
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 function handleHealth(_req: Request, res: Response) {
@@ -589,6 +654,20 @@ function handleRisk(req: Request, res: Response) {
   res.json(generateRiskCurve(fromMs, toMs));
 }
 
+function handleElevation(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/link-elevation  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateElevation(fromMs, toMs));
+}
+
+function handleLinkStatus(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/link-status  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateLinkStatus(fromMs, toMs));
+}
+
 function handleSatellites(req: Request, res: Response) {
   const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
   const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
@@ -622,6 +701,8 @@ function main() {
   app.get('/api/tca-marker',    handleTcaMarker);
   app.get('/api/confidence',    handleConfidence);
   app.post('/api/confidence',   handleConfidenceUpdate);
+  app.get('/api/link-elevation', handleElevation);
+  app.get('/api/link-status',    handleLinkStatus);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);
