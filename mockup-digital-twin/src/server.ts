@@ -391,6 +391,12 @@ function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; 
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 2 — in-memory confidence store.
+// Resets on server restart (prototype only). Keyed by satellite id.
+// ---------------------------------------------------------------------------
+const scenario2ConfidenceStore: Record<string, number> = {};
+
+// ---------------------------------------------------------------------------
 // Confidence table — static metadata per scenario, time-range independent.
 // last_observed_iso is derived from getTcaMs() so it stays in sync with
 // the Cesium panel and the risk curve across all requests in the same slot.
@@ -427,11 +433,14 @@ function generateConfidenceTable(scenario: number) {
   }
 
   if (scenario === ScenarioId.ConfidenceAssessment) {
-    // -1 = unassigned: Grafana value mapping should display this as "?"
+    // -1 = unassigned (Grafana value mapping should display this as "?")
+    // Once the operator submits via the plugin, the stored value replaces -1.
+    const conf2a = scenario2ConfidenceStore['sat-2a'] ?? -1;
+    const conf2b = scenario2ConfidenceStore['sat-2b'] ?? -1;
     return [
-      row('SAT-1',   9,  600,  tcaMs - 2 * 3600 * 1000,   'Helios Catalogue'),
-      row('SAT-2-A', -1, 100,  tcaMs - 5 * 3600 * 1000,   'Nadir Systems TLE'),
-      row('SAT-2-B', -1, 4000, tcaMs - 4.5 * 3600 * 1000, 'ArcLight Radar'),
+      row('SAT-1',   9,       600,  tcaMs - 2 * 3600 * 1000,   'Helios Catalogue'),
+      row('SAT-2-A', conf2a,  100,  tcaMs - 5 * 3600 * 1000,   'Nadir Systems TLE'),
+      row('SAT-2-B', conf2b,  4000, tcaMs - 4.5 * 3600 * 1000, 'ArcLight Radar'),
     ];
   }
 
@@ -454,6 +463,18 @@ function handleConfidence(req: Request, res: Response) {
   const scenario = req.query.scenario ? parseInt(req.query.scenario as string) : ScenarioId.Default;
   console.log(`[${new Date().toISOString()}] GET /api/confidence  scenario=${scenario}`);
   res.json(generateConfidenceTable(scenario));
+}
+
+function handleConfidenceUpdate(req: Request, res: Response) {
+  const { id, confidence } = req.body as { id: string; confidence: number };
+  if (!id || confidence === undefined || confidence === null) {
+    res.status(400).json({ error: 'id and confidence are required' });
+    return;
+  }
+  const value = Math.round(Math.min(10, Math.max(0, Number(confidence))));
+  scenario2ConfidenceStore[id] = value;
+  console.log(`[${new Date().toISOString()}] POST /api/confidence  id=${id}  confidence=${value}`);
+  res.json({ ok: true, id, confidence: value });
 }
 
 function handleTcaMarker(_req: Request, res: Response) {
@@ -502,11 +523,12 @@ function main() {
   app.use(cors());
   app.use(express.json());
 
-  app.get('/health',           handleHealth);
-  app.get('/api/satellites',   handleSatellites);
-  app.get('/api/risk',         handleRisk);
-  app.get('/api/tca-marker',   handleTcaMarker);
-  app.get('/api/confidence',   handleConfidence);
+  app.get('/health',            handleHealth);
+  app.get('/api/satellites',    handleSatellites);
+  app.get('/api/risk',          handleRisk);
+  app.get('/api/tca-marker',    handleTcaMarker);
+  app.get('/api/confidence',    handleConfidence);
+  app.post('/api/confidence',   handleConfidenceUpdate);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);

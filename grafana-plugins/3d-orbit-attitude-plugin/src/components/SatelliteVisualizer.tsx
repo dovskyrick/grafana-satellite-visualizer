@@ -41,7 +41,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { PanelProps, DataHoverEvent, LegacyGraphHoverEvent, DataFrame } from '@grafana/data';
-import { SimpleOptions } from 'types';
+import { SimpleOptions, ScenarioId } from 'types';
 import { generateRADecGrid, generateRADecGridLabels } from 'utils/celestialGrid';
 import { parseSatellites } from 'parsers/satelliteParser';
 import { ParsedSatellite } from 'types/satelliteTypes';
@@ -2290,7 +2290,21 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   <div className={styles.confidenceSubmitRow}>
                     <button
                       className={styles.confidenceSubmitButton}
-                      onClick={() => setShowReviewSubmittedModal(true)}
+                      onClick={() => {
+                        if (
+                          options.scenarioId === ScenarioId.Scenario2 &&
+                          options.digitalTwinUrl &&
+                          settingsModalSatelliteId
+                        ) {
+                          const confidence = confidenceValues.get(settingsModalSatelliteId) ?? 5;
+                          fetch(`${options.digitalTwinUrl}/api/confidence`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: settingsModalSatelliteId, confidence }),
+                          }).catch((err) => console.warn('Failed to submit confidence:', err));
+                        }
+                        setShowReviewSubmittedModal(true);
+                      }}
                     >
                       Submit Review
                     </button>
