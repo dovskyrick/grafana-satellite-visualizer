@@ -132,9 +132,10 @@ function buildSatelliteFrame(
 // Scenario identifiers — must stay in sync with ScenarioId enum in the plugin
 // ---------------------------------------------------------------------------
 const enum ScenarioId {
-  Default        = 0,
-  CollisionRisk1 = 1,
-  // 2–5 reserved for future scenarios
+  Default              = 0,
+  CollisionRisk1       = 1,
+  ConfidenceAssessment = 2,
+  // 3–5 reserved for future scenarios
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +238,90 @@ function generateScenario1(fromMs: number, toMs: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 2 — Confidence Assessment
+//
+// Same orbital geometry as Scenario 1 but the user must assign confidence
+// themselves.  SAT-2-A has a very old last observation (TCA − 5h) and a
+// frozen ellipsoid (growthHours=999 ≈ no growth) to make it look suspicious.
+// SAT-2-B is identical to Scenario 1 — recent obs, large but growing ellipsoid.
+// SAT-1 is identical to Scenario 1.
+// ---------------------------------------------------------------------------
+function generateScenario2(fromMs: number, toMs: number) {
+  const tcaMs   = getTcaMs();
+  const tcaDate = new Date(tcaMs);
+
+  const backDurationS = Math.max((tcaMs - fromMs) / 1000, 0);
+  const fwdDurationS  = Math.max((toMs  - tcaMs)  / 1000, 0);
+  const numPointsBack = backDurationS > 0 ? Math.floor(backDurationS / 60) + 1 : 0;
+  const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / 60) + 1 : 0;
+
+  const COLLISION_SATELLITES = [
+    {
+      id: 'sat-1',   name: 'SAT-1',
+      altitude: 549.9, inclination: 53, longitudeOfAN: 0, eccentricity: 0,
+      lastObservedMs: tcaMs - 2 * 3600 * 1000,
+      ellipsoid: { startM: 50, endM: 600, growthHours: 2 },
+    },
+    {
+      id: 'sat-2a',  name: 'SAT-2-A',
+      altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      lastObservedMs: tcaMs - 5 * 3600 * 1000,           // very stale — 5h before TCA
+      ellipsoid: { startM: 100, endM: 101, growthHours: 999 }, // frozen: negligible growth
+    },
+    {
+      id: 'sat-2b',  name: 'SAT-2-B',
+      altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      startAnomaly: 0.02,
+      lastObservedMs: tcaMs - 4.5 * 3600 * 1000,
+      ellipsoid: { startM: 50, endM: 4000, growthHours: 4.5 },
+    },
+  ];
+
+  const frames = COLLISION_SATELLITES.map((cfg, idx) => {
+    const baseParams: Omit<OrbitParams, 'timeDirection' | 'reverseTime' | 'numPoints' | 'duration'> = {
+      altitude:         cfg.altitude,
+      inclination:      cfg.inclination,
+      longitudeOfAN:    cfg.longitudeOfAN,
+      eccentricity:     cfg.eccentricity,
+      startAnomaly:     cfg.startAnomaly ?? 0,
+      startTime:        tcaDate,
+      lastObservedTime: new Date(cfg.lastObservedMs),
+      ellipsoid:        cfg.ellipsoid,
+    };
+
+    const pastArc: TrajectoryPoint[] = numPointsBack > 0
+      ? [...generateCircularOrbit({
+          ...baseParams,
+          numPoints: numPointsBack,
+          duration:  backDurationS,
+          timeDirection: -1,
+          reverseTime:   true,
+        })].reverse()
+      : [];
+
+    const futureArc: TrajectoryPoint[] = numPointsFwd > 0
+      ? generateCircularOrbit({
+          ...baseParams,
+          numPoints: numPointsFwd,
+          duration:  fwdDurationS,
+          timeDirection: 1,
+          reverseTime:   false,
+        })
+      : [];
+
+    const trajectory: TrajectoryPoint[] = [
+      ...pastArc,
+      ...futureArc.slice(pastArc.length > 0 ? 1 : 0),
+    ];
+
+    const sensors = buildSensors(idx);
+    return buildSatelliteFrame(cfg.id, cfg.name, trajectory, sensors, cfg.lastObservedMs);
+  });
+
+  return frames;
+}
+
+// ---------------------------------------------------------------------------
 // Core generation — startTime comes from Grafana's "from", duration capped at 12h
 // ---------------------------------------------------------------------------
 function generateTrajectory(fromMs: number, toMs: number, durationSeconds: number, scenario: number) {
@@ -274,6 +359,10 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 
   if (scenario === ScenarioId.CollisionRisk1) {
     return [...generateScenario1(fromMs, toMs), groundStationsFrame];
+  }
+
+  if (scenario === ScenarioId.ConfidenceAssessment) {
+    return [...generateScenario2(fromMs, toMs), groundStationsFrame];
   }
 
   return [...satellitesData, groundStationsFrame];
@@ -334,6 +423,15 @@ function generateConfidenceTable(scenario: number) {
       row('SAT-2-A', 2, 700,  tcaMs - 3 * 3600 * 1000,    'Nadir Systems TLE'),
       row('SAT-2-B', 7, 4000, tcaMs - 4.5 * 3600 * 1000,  'ArcLight Radar'),
       row('SAT-2-C', 8, 400,  tcaMs - 135 * 60 * 1000,    'Sentinel-Track OD'),
+    ];
+  }
+
+  if (scenario === ScenarioId.ConfidenceAssessment) {
+    // -1 = unassigned: Grafana value mapping should display this as "?"
+    return [
+      row('SAT-1',   9,  600,  tcaMs - 2 * 3600 * 1000,   'Helios Catalogue'),
+      row('SAT-2-A', -1, 100,  tcaMs - 5 * 3600 * 1000,   'Nadir Systems TLE'),
+      row('SAT-2-B', -1, 4000, tcaMs - 4.5 * 3600 * 1000, 'ArcLight Radar'),
     ];
   }
 

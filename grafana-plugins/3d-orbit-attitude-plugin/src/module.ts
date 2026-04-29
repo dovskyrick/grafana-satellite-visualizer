@@ -21,7 +21,7 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
         options: [
           { value: ScenarioId.Default,        label: 'Default (3 satellites)' },
           { value: ScenarioId.CollisionRisk1, label: 'Scenario 1 – Collision Risk' },
-          { value: ScenarioId.Scenario2,      label: 'Scenario 2 (reserved)' },
+          { value: ScenarioId.Scenario2,      label: 'Scenario 2 – Confidence Assessment' },
           { value: ScenarioId.Scenario3,      label: 'Scenario 3 (reserved)' },
           { value: ScenarioId.Scenario4,      label: 'Scenario 4 (reserved)' },
           { value: ScenarioId.Scenario5,      label: 'Scenario 5 (reserved)' },
