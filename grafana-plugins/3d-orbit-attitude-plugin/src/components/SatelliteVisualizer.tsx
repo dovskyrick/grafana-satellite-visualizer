@@ -942,14 +942,17 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
         // STEP 3: per-frame GS-pointing orientation override.
         //
-        // Quaternions in Cesium are in ICRF (inertial), confirmed by step 1/2 testing.
-        // Positions are in ECEF (ReferenceFrame.FIXED).
+        // Conventions (verified empirically):
+        //   - Positions returned by SampledPositionProperty.getValue are ECEF.
+        //   - Cesium entity orientation quaternions are in ICRF (inertial).
+        //   - Sensor cone direction = Matrix3.fromQuaternion(q) · [0,0,1]
+        //     (i.e. the third column of the rotation matrix corresponding to q).
         //
-        // Algorithm:
-        //   1. Compute GS − SAT direction in ECEF
-        //   2. Rotate that vector into ICRF via Transforms.computeFixedToIcrfMatrix(time)
-        //   3. Build rotation matrix R in ICRF where column 2 = zDir (antenna → GS)
-        //   4. Return Quaternion.fromRotationMatrix(R)
+        // Approach: build the body→world rotation R in ECEF (where the geometry is
+        // simple), then convert it to ICRF with a single matrix multiply, then to
+        // a quaternion. R is constructed via Matrix3.fromColumnMajorArray so the
+        // column ordering is unambiguous: column 2 must equal the SAT→GS unit
+        // vector so that R·[0,0,1] points the antenna at the GS.
         if (options.scenarioId === ScenarioId.Scenario3 && parsedGroundStations.length > 0) {
           const targetGs = parsedGroundStations[0];
           const gsEcef   = Cartesian3.fromDegrees(targetGs.longitude, targetGs.latitude, targetGs.altitude);
@@ -959,49 +962,44 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               const satEcef = sat.position.getValue(time);
               if (!satEcef) { return Quaternion.IDENTITY; }
 
-              // Direction from satellite to GS in ECEF
-              const dirEcef = Cartesian3.normalize(
+              const fixedToIcrf = Transforms.computeFixedToIcrfMatrix(time, new Matrix3());
+              if (!fixedToIcrf) { return Quaternion.IDENTITY; }
+
+              // Body +Z target (antenna boresight) in ECEF: SAT → GS.
+              const zEcef = Cartesian3.normalize(
                 Cartesian3.subtract(gsEcef, satEcef, new Cartesian3()),
                 new Cartesian3()
               );
 
-              // Rotate direction into ICRF
-              const fixedToIcrf = Transforms.computeFixedToIcrfMatrix(time, new Matrix3());
-              if (!fixedToIcrf) { return Quaternion.IDENTITY; }
+              // Up hint: satellite radial in ECEF (just the normalised position).
+              const radialEcef = Cartesian3.normalize(satEcef, new Cartesian3());
 
-              const zDir = Cartesian3.normalize(
-                Matrix3.multiplyByVector(fixedToIcrf, dirEcef, new Cartesian3()),
-                new Cartesian3()
-              );
-
-              // Up hint: satellite radial direction in ICRF (away from Earth centre)
-              const radialIcrf = Cartesian3.normalize(
-                Matrix3.multiplyByVector(fixedToIcrf, satEcef, new Cartesian3()),
-                new Cartesian3()
-              );
-
-              // X axis: perpendicular to both zDir and radial
-              const xDir = Cartesian3.cross(radialIcrf, zDir, new Cartesian3());
-              if (Cartesian3.magnitude(xDir) < 1e-6) {
-                Cartesian3.cross(Cartesian3.UNIT_Y, zDir, xDir);
+              // X axis: perpendicular to boresight and radial. Falls back to a
+              // generic axis when the satellite is exactly above (or below) the GS.
+              const xEcef = Cartesian3.cross(radialEcef, zEcef, new Cartesian3());
+              if (Cartesian3.magnitude(xEcef) < 1e-6) {
+                Cartesian3.cross(Cartesian3.UNIT_Y, zEcef, xEcef);
               }
-              Cartesian3.normalize(xDir, xDir);
+              Cartesian3.normalize(xEcef, xEcef);
 
-              // Y axis: complete right-handed frame
-              const yDir = Cartesian3.normalize(
-                Cartesian3.cross(zDir, xDir, new Cartesian3()),
+              // Y axis: completes the right-handed frame.
+              const yEcef = Cartesian3.normalize(
+                Cartesian3.cross(zEcef, xEcef, new Cartesian3()),
                 new Cartesian3()
               );
 
-              // Rotation matrix: R·[0,0,1] = zDir  →  antenna +Z points toward GS
-              // Matrix3(c0r0,c0r1,c0r2, c1r0,c1r1,c1r2, c2r0,c2r1,c2r2)
-              const rotMatrix = new Matrix3(
-                xDir.x, xDir.y, xDir.z,
-                yDir.x, yDir.y, yDir.z,
-                zDir.x, zDir.y, zDir.z
-              );
+              // Body→ECEF rotation as a column-major flat array so that the three
+              // basis vectors land in columns 0, 1, 2 respectively.
+              const rEcef = Matrix3.fromColumnMajorArray([
+                xEcef.x, xEcef.y, xEcef.z,
+                yEcef.x, yEcef.y, yEcef.z,
+                zEcef.x, zEcef.y, zEcef.z,
+              ]);
 
-              return Quaternion.fromRotationMatrix(rotMatrix);
+              // Body→ICRF = (ECEF→ICRF) · (Body→ECEF).
+              const rIcrf = Matrix3.multiply(fixedToIcrf, rEcef, new Matrix3());
+
+              return Quaternion.fromRotationMatrix(rIcrf);
             }, false);
           });
         }

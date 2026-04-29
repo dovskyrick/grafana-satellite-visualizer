@@ -1,4 +1,4 @@
-# Scenario 3 — GS-Pointing Attitude: Full Problem Statement
+# Scenario 3 — GS-Pointing Attitude: Problem Statement & Resolution
 
 ## Project Context
 
@@ -9,12 +9,12 @@ This is a Grafana panel plugin (`3d-orbit-attitude-plugin`) built with React + R
 ## Coordinate System Facts — Verified by Testing
 
 ### Positions
-Satellite positions are stored in a Cesium `SampledPositionProperty` created with `ReferenceFrame.FIXED`. This means all position values are in **ECEF (Earth-Centred Earth-Fixed / ITRF)** — they co-rotate with Earth. Ground station positions are computed via `Cartesian3.fromDegrees(lon, lat, altMetres)` which also produces **ECEF** vectors.
+Satellite positions are stored in a Cesium `SampledPositionProperty` created with `ReferenceFrame.FIXED`. `getValue(time)` therefore returns **ECEF (Earth-Centred Earth-Fixed / ITRF)** vectors that co-rotate with Earth. Ground station positions are computed via `Cartesian3.fromDegrees(lon, lat, altMetres)` which also produces **ECEF** vectors.
 
 ### Orientations
 Cesium entity orientation quaternions were empirically confirmed to be in **ICRF (Earth-Centred Inertial)**, not ECEF. This was determined by giving the satellite a slowly-increasing Z-rotation from the server: the spin axis remained fixed relative to the stars (inertial), not relative to Earth's surface. A fixed hardcoded quaternion `(0, 0.7071, 0, 0.7071)` (90° around Y) was then verified to freeze the satellite in a fixed inertial orientation, confirming the override `CallbackProperty` mechanism itself works correctly.
 
-The orientation quaternion `q` therefore represents: **rotation from satellite body frame to ICRF world frame**. Applied by Cesium as: world_vector = `Matrix3.fromQuaternion(q)` · body_vector.
+The orientation quaternion `q` represents: **rotation from satellite body frame to ICRF world frame**. Applied by Cesium as: world_vector = `Matrix3.fromQuaternion(q)` · body_vector.
 
 ### Sensor Cone Direction
 In `CesiumEntityRenderers.tsx`, the sensor cone direction is computed as:
@@ -27,101 +27,116 @@ The antenna sensor has identity body orientation (`qx=0, qy=0, qz=0, qw=1`), so 
 
 ---
 
-## The Rotation Matrix Construction
+## Root Cause (Resolved)
 
-The goal: build a rotation matrix `R` (in ICRF) such that `R · [0,0,1] = zDir_icrf` where `zDir_icrf` is the unit vector from satellite to GS in ICRF. This requires three orthonormal columns:
+The bug was in the `Matrix3` constructor argument order. Cesium's `Matrix3` constructor takes its 9 numbers in **row-major** argument order — even though the internal storage is column-major. From `cesium/Source/Cesium.d.ts`:
 
-- **Column 2 (zDir):** unit vector from SAT → GS, in ICRF
-- **Column 0 (xDir):** perpendicular to zDir and to a chosen "up" hint
-- **Column 1 (yDir):** completes the right-handed frame
-
-The Cesium `Matrix3` constructor signature is:
+```typescript
+constructor(
+  column0Row0?, column1Row0?, column2Row0?,   // row 0 (across columns)
+  column0Row1?, column1Row1?, column2Row1?,   // row 1
+  column0Row2?, column1Row2?, column2Row2?,   // row 2
+);
 ```
-new Matrix3(c0r0, c0r1, c0r2,  c1r0, c1r1, c1r2,  c2r0, c2r1, c2r2)
-```
-where `cNrM` = column N, row M. So `Matrix3.multiplyByVector(R, [0,0,1])` picks out column 2 = `(c2r0, c2r1, c2r2)`. The construction:
+
+The previous implementation passed the basis vectors three-at-a-time as if the constructor were column-major:
+
 ```typescript
 new Matrix3(
-  xDir.x, xDir.y, xDir.z,   // column 0
-  yDir.x, yDir.y, yDir.z,   // column 1
-  zDir.x, zDir.y, zDir.z    // column 2
-)
+  xDir.x, xDir.y, xDir.z,
+  yDir.x, yDir.y, yDir.z,
+  zDir.x, zDir.y, zDir.z,
+);
 ```
-makes `R · [0,0,1] = (zDir.x, zDir.y, zDir.z)` = `zDir` ✓. This matrix algebra is confirmed correct.
+
+Because the constructor is row-major, this actually produced a matrix whose **rows** were the basis vectors — i.e. the **transpose** of the intended rotation. For an orthonormal matrix the transpose is the inverse, so the resulting quaternion described the *inverse* rotation, which exactly matched the observed symptom: the satellite orientation drifted with the orbit but did not track the GS.
+
+The misleading factors that distracted earlier debugging:
+
+1. **Cesium quaternion convention (active vs passive rotation):** Not the issue. `Matrix3.fromQuaternion(q)` and `Quaternion.fromRotationMatrix(M)` are exact inverses by Cesium's design; the hardcoded-quaternion test already established the body→world convention is consistent.
+2. **`Matrix3.fromQuaternion` vs the inverse:** Same as above — round-trip identity holds.
+3. **Cesium axis permutation in ICRF:** Not the issue. Cesium ICRF axes are standard (X = vernal equinox, Z = celestial pole, right-handed). The hardcoded-quaternion test would have exposed any permutation.
+4. **`computeFixedToIcrfMatrix` direction:** Not the issue. The function returns ECEF→ICRF, matching its name and how the code uses it.
 
 ---
 
-## Current Implementation
+## Fix
+
+Two cleanups, applied together:
+
+1. Use `Matrix3.fromColumnMajorArray([...])` to pack the basis vectors as columns. This removes any ambiguity about the constructor's argument order.
+2. Build the body→ECEF rotation in ECEF (where the geometry — SAT→GS direction, satellite radial — is naturally expressed), then convert to ICRF with a single matrix multiply: `R_icrf = M_fixedToIcrf · R_ecef`. This replaces two per-frame vector transforms with one matrix multiply and reads more naturally.
 
 ```typescript
 // In SatelliteVisualizer.tsx — inside applyFrames(), after parseSatellites()
 if (options.scenarioId === ScenarioId.Scenario3 && parsedGroundStations.length > 0) {
-  const targetGs = parsedGroundStations[0];  // Orbital GS Lisbon
+  const targetGs = parsedGroundStations[0];
   const gsEcef   = Cartesian3.fromDegrees(targetGs.longitude, targetGs.latitude, targetGs.altitude);
 
   parsedSatellites.forEach(sat => {
     (sat as any).orientation = new CallbackProperty((time: JulianDate) => {
-      const satEcef = sat.position.getValue(time);  // ECEF
+      const satEcef = sat.position.getValue(time);
       if (!satEcef) { return Quaternion.IDENTITY; }
 
-      // Step 1: direction SAT→GS in ECEF
-      const dirEcef = Cartesian3.normalize(
-        Cartesian3.subtract(gsEcef, satEcef, new Cartesian3()), new Cartesian3()
-      );
-
-      // Step 2: transform direction to ICRF
       const fixedToIcrf = Transforms.computeFixedToIcrfMatrix(time, new Matrix3());
       if (!fixedToIcrf) { return Quaternion.IDENTITY; }
-      const zDir = Cartesian3.normalize(
-        Matrix3.multiplyByVector(fixedToIcrf, dirEcef, new Cartesian3()), new Cartesian3()
+
+      // Body +Z target (antenna boresight) in ECEF: SAT → GS.
+      const zEcef = Cartesian3.normalize(
+        Cartesian3.subtract(gsEcef, satEcef, new Cartesian3()),
+        new Cartesian3()
       );
 
-      // Step 3: up-hint = satellite radial direction in ICRF
-      const radialIcrf = Cartesian3.normalize(
-        Matrix3.multiplyByVector(fixedToIcrf, satEcef, new Cartesian3()), new Cartesian3()
-      );
+      // Up hint: satellite radial in ECEF (just the normalised position).
+      const radialEcef = Cartesian3.normalize(satEcef, new Cartesian3());
 
-      // Step 4: orthonormal frame
-      const xDir = Cartesian3.cross(radialIcrf, zDir, new Cartesian3());
-      if (Cartesian3.magnitude(xDir) < 1e-6) {
-        Cartesian3.cross(Cartesian3.UNIT_Y, zDir, xDir);
+      // X axis: perpendicular to boresight and radial.
+      const xEcef = Cartesian3.cross(radialEcef, zEcef, new Cartesian3());
+      if (Cartesian3.magnitude(xEcef) < 1e-6) {
+        Cartesian3.cross(Cartesian3.UNIT_Y, zEcef, xEcef);
       }
-      Cartesian3.normalize(xDir, xDir);
-      const yDir = Cartesian3.normalize(Cartesian3.cross(zDir, xDir, new Cartesian3()), new Cartesian3());
+      Cartesian3.normalize(xEcef, xEcef);
 
-      // Step 5: rotation matrix and quaternion
-      const rotMatrix = new Matrix3(
-        xDir.x, xDir.y, xDir.z,
-        yDir.x, yDir.y, yDir.z,
-        zDir.x, zDir.y, zDir.z
+      // Y axis: completes the right-handed frame.
+      const yEcef = Cartesian3.normalize(
+        Cartesian3.cross(zEcef, xEcef, new Cartesian3()),
+        new Cartesian3()
       );
-      return Quaternion.fromRotationMatrix(rotMatrix);
+
+      // Body→ECEF rotation: basis vectors as columns.
+      const rEcef = Matrix3.fromColumnMajorArray([
+        xEcef.x, xEcef.y, xEcef.z,
+        yEcef.x, yEcef.y, yEcef.z,
+        zEcef.x, zEcef.y, zEcef.z,
+      ]);
+
+      // Body→ICRF = (ECEF→ICRF) · (Body→ECEF).
+      const rIcrf = Matrix3.multiply(fixedToIcrf, rEcef, new Matrix3());
+
+      return Quaternion.fromRotationMatrix(rIcrf);
     }, false);
   });
 }
 ```
 
-The `CallbackProperty` override mechanism is confirmed working. The `fixedToIcrf` transform is confirmed available. The matrix algebra is verified correct on paper.
-
 ---
 
-## Observed Problem
+## Verification
 
-The cone does not point toward Lisbon. The orientation is "moving somewhat" with the orbit but not clearly tracking the GS. Possible causes yet to be isolated:
-
-1. **Cesium quaternion convention (active vs passive rotation):** Cesium may define the orientation quaternion as rotating ICRF vectors into the body frame (passive/inverse), rather than body → ICRF (active). If so, the quaternion returned should be the conjugate/inverse: `Quaternion.conjugate(Quaternion.fromRotationMatrix(rotMatrix), result)`.
-
-2. **Matrix3.fromQuaternion vs the inverse:** The sensor cone computes `sensorDir = Matrix3.fromQuaternion(satOrient) · [0,0,1]`. If `Matrix3.fromQuaternion(q)` produces the transpose of the rotation described by `q` (Cesium sometimes uses column-major vs row-major conventions), then the relationship between the quaternion and the third column is inverted.
-
-3. **Cesium axis permutation:** Cesium's ICRF axes may not be standard XYZ (e.g., Y and Z swapped relative to what we expect). This would require permuting the matrix columns.
-
-4. **`computeFixedToIcrfMatrix` direction:** The function might return ICRF→ECEF rather than ECEF→ICRF (naming ambiguity). If so, `computeIcrfToFixedMatrix` should be used instead, or the matrix should be transposed.
+1. **Visual check:** at a time when SAT-COMM passes near Lisbon, the cone should sweep through the GS marker.
+2. **Numeric round-trip (temporary):**
+   ```typescript
+   const q = Quaternion.fromRotationMatrix(rIcrf);
+   const m = Matrix3.fromQuaternion(q, new Matrix3());
+   const back = Matrix3.multiplyByVector(m, new Cartesian3(0, 0, 1), new Cartesian3());
+   // back should equal Matrix3.multiplyByVector(fixedToIcrf, zEcef, …) to ~1e-12.
+   ```
 
 ---
 
 ## Files Involved
 
-- `grafana-plugins/3d-orbit-attitude-plugin/src/components/SatelliteVisualizer.tsx` — orientation override (lines ~943–1005)
-- `grafana-plugins/3d-orbit-attitude-plugin/src/components/entities/CesiumEntityRenderers.tsx` — sensor cone direction computation (lines ~308–346)
+- `grafana-plugins/3d-orbit-attitude-plugin/src/components/SatelliteVisualizer.tsx` — orientation override (Scenario 3 block in `applyFrames`)
+- `grafana-plugins/3d-orbit-attitude-plugin/src/components/entities/CesiumEntityRenderers.tsx` — sensor cone direction computation
 - `grafana-plugins/3d-orbit-attitude-plugin/src/parsers/satelliteParser.ts` — position (`ReferenceFrame.FIXED`, ECEF), orientation (`SampledProperty(Quaternion)`, ICRF)
 - `mockup-digital-twin/src/server.ts` — `generateScenario3()` returns SAT-COMM trajectory with Z-spin attitude test data and `SCENARIO3_GS` ground station
