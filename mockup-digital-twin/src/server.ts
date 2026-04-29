@@ -171,21 +171,21 @@ function generateScenario1(fromMs: number, toMs: number) {
       id: 'sat-2a',  name: 'SAT-2-A',
       altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       lastObservedMs: tcaMs - 3 * 3600 * 1000,           // TCA − 3h
-      ellipsoid: { startM: 50, endM: 700, growthHours: 4 },
+      ellipsoid: { startM: 50, endM: 700, growthHours: 3 },
     },
     {
       id: 'sat-2b',  name: 'SAT-2-B',
       altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       startAnomaly: 0.02,                                 // ~0.4s offset → slightly off-centre conjunction
       lastObservedMs: tcaMs - 4.5 * 3600 * 1000,         // TCA − 4h30min
-      ellipsoid: { startM: 50, endM: 4000, growthHours: 1.5 },
+      ellipsoid: { startM: 50, endM: 4000, growthHours: 4.5 },
     },
     {
       id: 'sat-2c',  name: 'SAT-2-C',
       altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       startAnomaly: 0.11,                                 // ~2s ahead in orbit → ~15 km along-track at TCA → no conjunction
       lastObservedMs: tcaMs - 135 * 60 * 1000,           // TCA − 2h15min
-      ellipsoid: { startM: 50, endM: 400, growthHours: 0.75 },
+      ellipsoid: { startM: 50, endM: 400, growthHours: 2.25 },
     },
   ];
 
