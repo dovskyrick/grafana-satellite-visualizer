@@ -67,7 +67,7 @@
           "assetMode": "Model",
           "coordinatesType": "Geodetic",
           "decSpacing": 15,
-          "digitalTwinUrl": "http://localhost:3001",
+          "digitalTwinUrl": "https://satellite-twin.fly.dev",
           "gridLabelSize": 14,
           "locationPointColor": "white",
           "locationPointSize": 10,
@@ -123,7 +123,7 @@
             "scenarioId": "raw_frame"
           }
         ],
-        "title": "Built Dashboard",
+        "title": "Satellite Visualization",
         "type": "lucasbremond-satellitevisualizer-panel"
       },
       {
@@ -238,7 +238,7 @@
             "source": "url",
             "type": "json",
             "uql": "parse-json",
-            "url": "http://mockup-twin:3001/api/link-elevation?from=${__from}&to=${__to}",
+            "url": "https://satellite-twin.fly.dev/api/link-elevation?from=${__from}&to=${__to}",
             "url_options": {
               "data": "",
               "method": "GET"
@@ -260,7 +260,7 @@
             "source": "url",
             "type": "json",
             "uql": "parse-json",
-            "url": "http://mockup-twin:3001/api/link-status?from=${__from}&to=${__to}",
+            "url": "https://satellite-twin.fly.dev/api/link-status?from=${__from}&to=${__to}",
             "url_options": {
               "data": "",
               "method": "GET"
@@ -404,7 +404,7 @@
             "root_selector": "",
             "source": "url",
             "type": "json",
-            "url": "http://mockup-twin:3001/api/link-anomaly?from=${__from}&to=${__to}",
+            "url": "https://satellite-twin.fly.dev/api/link-anomaly?from=${__from}&to=${__to}",
             "url_options": {
               "data": "",
               "method": "GET"

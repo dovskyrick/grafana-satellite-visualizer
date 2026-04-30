@@ -6,7 +6,6 @@ primary_region = 'lhr'  # London - closest to you in Portugal
 
 [env]
   GF_SECURITY_ADMIN_USER = "admin"
-  GF_SECURITY_ADMIN_PASSWORD = "admin"
   GF_USERS_ALLOW_SIGN_UP = "false"
   GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS = "lucasbremond-satellitevisualizer-panel"
   GF_SERVER_ROOT_URL = "https://satellite-visualizer-demo.fly.dev"
@@ -14,8 +13,8 @@ primary_region = 'lhr'  # London - closest to you in Portugal
   GF_SERVER_HTTP_PORT = "3000"
   GF_AUTH_ANONYMOUS_ENABLED = "true"
   GF_AUTH_ANONYMOUS_ORG_ROLE = "Viewer"
-  GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/etc/grafana/provisioning/dashboards/satellite-demo.json"
-  GF_INSTALL_PLUGINS = ""
+  GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/etc/grafana/provisioning/dashboards/scenario-1-conjunction.json"
+  GF_INSTALL_PLUGINS = "yesoreyeram-infinity-datasource"
   DIGITAL_TWIN_URL = "http://satellite-twin.internal:3001"
 
 [http_service]
@@ -23,7 +22,7 @@ primary_region = 'lhr'  # London - closest to you in Portugal
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
 [[vm]]
   memory = '1gb'

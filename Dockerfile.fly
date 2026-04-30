@@ -2,7 +2,6 @@ FROM grafana/grafana:10.0.3
 
 # Set environment variables
 ENV GF_SECURITY_ADMIN_USER=admin \
-    GF_SECURITY_ADMIN_PASSWORD=admin \
     GF_USERS_ALLOW_SIGN_UP=false \
     GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=lucasbremond-satellitevisualizer-panel \
     GF_PATHS_PLUGINS=/var/lib/grafana-plugins

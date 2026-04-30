@@ -132,7 +132,7 @@
         "assetMode": "Model",
         "coordinatesType": "Geodetic",
         "decSpacing": 15,
-        "digitalTwinUrl": "http://localhost:3001",
+        "digitalTwinUrl": "https://satellite-twin.fly.dev",
         "gridLabelSize": 14,
         "locationPointColor": "white",
         "locationPointSize": 10,

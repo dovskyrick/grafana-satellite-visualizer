@@ -67,7 +67,7 @@
           "assetMode": "Model",
           "coordinatesType": "Geodetic",
           "decSpacing": 15,
-          "digitalTwinUrl": "http://localhost:3001",
+          "digitalTwinUrl": "https://satellite-twin.fly.dev",
           "gridLabelSize": 14,
           "locationPointColor": "white",
           "locationPointSize": 10,
@@ -238,7 +238,7 @@
             "source": "url",
             "type": "json",
             "uql": "parse-json",
-            "url": "http://mockup-twin:3001/api/stars-matched?from=${__from}&to=${__to}",
+            "url": "https://satellite-twin.fly.dev/api/stars-matched?from=${__from}&to=${__to}",
             "url_options": {
               "data": "",
               "method": "GET"
@@ -360,7 +360,7 @@
             "source": "url",
             "type": "json",
             "uql": "parse-json",
-            "url": "http://mockup-twin:3001/api/tracker-anomaly?from=${__from}&to=${__to}",
+            "url": "https://satellite-twin.fly.dev/api/tracker-anomaly?from=${__from}&to=${__to}",
             "url_options": {
               "data": "",
               "method": "GET"

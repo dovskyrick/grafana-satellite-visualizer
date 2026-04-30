@@ -182,7 +182,7 @@
             "root_selector": "",
             "source": "url",
             "type": "json",
-            "url": "http://mockup-twin:3001/api/confidence?scenario=2",
+            "url": "https://satellite-twin.fly.dev/api/confidence?scenario=2",
             "url_options": {
               "data": "",
               "method": "GET"
@@ -255,7 +255,7 @@
           "assetMode": "Model",
           "coordinatesType": "Geodetic",
           "decSpacing": 15,
-          "digitalTwinUrl": "http://localhost:3001",
+          "digitalTwinUrl": "https://satellite-twin.fly.dev",
           "gridLabelSize": 14,
           "locationPointColor": "white",
           "locationPointSize": 10,
@@ -311,7 +311,7 @@
             "scenarioId": "raw_frame"
           }
         ],
-        "title": "Built Dashboard",
+        "title": "Satellite Visualization",
         "type": "lucasbremond-satellitevisualizer-panel"
       },
       {
@@ -414,7 +414,7 @@
             "source": "url",
             "type": "json",
             "uql": "parse-json",
-            "url": "http://mockup-twin:3001/api/risk?from=${__from}&to=${__to}",
+            "url": "https://satellite-twin.fly.dev/api/risk?from=${__from}&to=${__to}",
             "url_options": {
               "data": "",
               "method": "GET"
@@ -436,7 +436,7 @@
             "source": "url",
             "type": "json",
             "uql": "parse-json",
-            "url": "http://mockup-twin:3001/api/tca-marker?",
+            "url": "https://satellite-twin.fly.dev/api/tca-marker?",
             "url_options": {
               "data": "",
               "method": "GET"
