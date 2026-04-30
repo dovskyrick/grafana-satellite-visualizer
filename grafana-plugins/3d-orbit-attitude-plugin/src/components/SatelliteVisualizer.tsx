@@ -152,6 +152,11 @@ function clampLabel(
 // 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
 const GS_POV_FOV_DEG = 179;
 
+// ─── Celestial Map (zoomed-in) camera settings ───────────────────────────────
+// Tweak CELESTIAL_FOV_DEG to change the FOV for the zoomed-in celestial view.
+// 60 = Cesium default; 90 = wide-angle; 120 = very wide.
+const CELESTIAL_FOV_DEG = 90;
+
 // ─── Digital Twin helpers ─────────────────────────────────────────────────────
 /**
  * Convert the raw JSON array returned by the mockup digital twin server into
@@ -694,9 +699,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // Auto-track satellite and adjust camera based on mode
   useEffect(() => {
     if (selectedMode === 'satellite' || selectedMode === 'celestial') {
-      // Reset FOV to Cesium default when leaving Ground Station POV
+      // Set FOV: wider angle for celestial map, Cesium default for satellite focus
       const viewer = viewerRef.current?.cesiumElement;
-      if (viewer) { viewer.camera.frustum.fov = (60 * Math.PI) / 180; }
+      if (viewer) {
+        const fovDeg = selectedMode === 'celestial' ? CELESTIAL_FOV_DEG : 60;
+        viewer.camera.frustum.fov = (fovDeg * Math.PI) / 180;
+      }
 
       // Enable tracking for Satellite Focus and Celestial Map modes
       if (!isTracked) {
