@@ -1555,9 +1555,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 <LabelGraphics
                   text={satellite.name}
                   font="14px sans-serif"
-                  fillColor={Color.WHITE}
-                  outlineColor={Color.BLACK}
-                  outlineWidth={2}
+                  fillColor={Color.fromAlpha(Color.BLACK, 0.0)}
+                  outlineColor={Color.fromAlpha(Color.BLACK, 0.0)}
+                  outlineWidth={0}
                   style={LabelStyle.FILL_AND_OUTLINE}
                   pixelOffset={new Cartesian2(0, -20)}
                 />
