@@ -416,11 +416,9 @@ function generateScenario3(fromMs: number, toMs: number) {
 // Scenario 4 — Star Tracker Anomaly
 //
 // Identical orbit to Scenario 3 (same anchor, same circular orbit params).
-// Attitude is a single static quaternion for all trajectory points — no
-// per-frame computation.  The Star Tracker sensor boresight is along +X body
-// (sensor orientation = −90° around Y).
-// First guess: (qx=1, qy=0, qz=0, qs=0).  Swap to other tries from the plan
-// table if the celestial map shows it missing the Sun.
+// Body attitude is left as identity here — the plugin overrides it per Cesium
+// frame to point the body +Z axis at the Sun (mirrors the GS-pointing override
+// used in Scenario 3). Sensor mount is identity so boresight = body +Z.
 // ---------------------------------------------------------------------------
 function generateScenario4(fromMs: number, toMs: number) {
   const anchorMs      = getScenario3AnchorMs(); // same 6-h-before-now snap
@@ -440,15 +438,17 @@ function generateScenario4(fromMs: number, toMs: number) {
     ellipsoid:        { startM: 30, endM: 80, growthHours: (toMs - fromMs) / 3600000 },
   });
 
+  // Identity body attitude — the plugin replaces this with a Sun-pointing
+  // CallbackProperty, identical pattern to Scenario 3's GS-pointing override.
   const points = allPoints
     .filter(p => p.time >= fromMs)
-    .map(p => ({ ...p, qx: 1, qy: 1, qz: 0, qs: 0 })); // static attitude — try 1
+    .map(p => ({ ...p, qx: 0, qy: 0, qz: 0, qs: 1 }));
 
   const starTrackerSensor = [{
-    id:          'sat-st-x',
+    id:          'sat-st-z',
     name:        'Star Tracker',
     fov:         20,
-    orientation: { qx: 1, qy: 0, qz: 0, qw: 0 }, // boresight = +X body
+    orientation: { qx: 0, qy: 0, qz: 0, qw: 1 }, // identity → boresight = +Z body
     color:       '#FFD700',
   }];
 

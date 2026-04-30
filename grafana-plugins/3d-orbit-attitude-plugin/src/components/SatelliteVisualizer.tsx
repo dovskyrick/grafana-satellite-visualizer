@@ -1026,6 +1026,64 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           });
         }
 
+        // Scenario 4 — Sun-pointing override.
+        //
+        // Same recipe as Scenario 3 (body→ECEF rotation, body +Z aligned with
+        // SAT→target, satellite radial as up-hint), with two differences:
+        //   - Target ECEF is the Sun, recomputed every frame from
+        //     Simon1994PlanetaryPositions (ICRF) rotated through computeIcrfToFixedMatrix.
+        //   - No anomaly-window tilt block (Scenario 4 has no anomaly injection).
+        //
+        // Server-side attitude is identity and the Star Tracker's sensor
+        // orientation is identity, so boresight = body +Z and the cone
+        // sits centred on the ☉ Sun marker in celestial mode.
+        if (options.scenarioId === ScenarioId.Scenario4) {
+          parsedSatellites.forEach(sat => {
+            (sat as any).orientation = new CallbackProperty((time: JulianDate) => {
+              const satEcef = sat.position.getValue(time);
+              if (!satEcef) { return Quaternion.IDENTITY; }
+
+              // Sun position in ECEF at this Julian time.
+              const sunEci = Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(time, new Cartesian3());
+              const icrfToFixed = Transforms.computeIcrfToFixedMatrix(time);
+              const sunEcef = icrfToFixed
+                ? Matrix3.multiplyByVector(icrfToFixed, sunEci, new Cartesian3())
+                : sunEci;
+
+              // Body +Z target (boresight) in ECEF: SAT → Sun.
+              const zEcef = Cartesian3.normalize(
+                Cartesian3.subtract(sunEcef, satEcef, new Cartesian3()),
+                new Cartesian3()
+              );
+
+              // Up hint: satellite radial in ECEF.
+              const radialEcef = Cartesian3.normalize(satEcef, new Cartesian3());
+
+              // X axis: perpendicular to boresight and radial. Fallback when
+              // the Sun direction happens to be parallel to the radial.
+              const xEcef = Cartesian3.cross(radialEcef, zEcef, new Cartesian3());
+              if (Cartesian3.magnitude(xEcef) < 1e-6) {
+                Cartesian3.cross(Cartesian3.UNIT_Y, zEcef, xEcef);
+              }
+              Cartesian3.normalize(xEcef, xEcef);
+
+              // Y axis: completes the right-handed frame.
+              const yEcef = Cartesian3.normalize(
+                Cartesian3.cross(zEcef, xEcef, new Cartesian3()),
+                new Cartesian3()
+              );
+
+              const rEcef = Matrix3.fromColumnMajorArray([
+                xEcef.x, xEcef.y, xEcef.z,
+                yEcef.x, yEcef.y, yEcef.z,
+                zEcef.x, zEcef.y, zEcef.z,
+              ]);
+
+              return Quaternion.fromRotationMatrix(rEcef);
+            }, false);
+          });
+        }
+
         setSatellites(parsedSatellites);
         setGroundStations(parsedGroundStations);
         console.log(`📡 Parsed ${parsedGroundStations.length} ground station(s)`);
