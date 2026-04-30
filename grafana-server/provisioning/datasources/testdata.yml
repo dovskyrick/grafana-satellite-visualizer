@@ -18,7 +18,4 @@ datasources:
     isDefault: true
     version: 1
     editable: true
-    jsonData:
-      allowedHosts:
-        - ${DIGITAL_TWIN_URL}
 
