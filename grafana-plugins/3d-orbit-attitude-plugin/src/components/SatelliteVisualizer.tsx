@@ -719,7 +719,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     } else if (selectedMode === 'earth') {
       // Reset FOV to Cesium default when leaving Ground Station POV
       const viewer = viewerRef.current?.cesiumElement;
-      if (viewer) { viewer.camera.frustum.fov = (60 * Math.PI) / 180; }
+      if (viewer) {
+        viewer.camera.frustum.fov = (60 * Math.PI) / 180;
+      }
 
       // Earth Focus mode: smooth transition to nadir view then enable free camera
       if (isTracked && trackedSatelliteId) {
@@ -788,6 +790,21 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
     prevModeRef.current = selectedMode;
   }, [selectedMode, isTracked, trackedSatelliteId, trackedGroundStationId, groundStations, flyToSatelliteNadirView, viewerRef]);
+
+  // Enforce zoom distance caps per mode — runs after tracking changes settle
+  // (Cesium resets maximumZoomDistance when detaching trackedEntity, so we re-apply with a delay)
+  useEffect(() => {
+    const earthRadius = 6378137;
+    const apply = () => {
+      const viewer = viewerRef.current?.cesiumElement;
+      if (!viewer) { return; }
+      const cap = selectedMode === 'earth' ? earthRadius * 0.5 : earthRadius * 3;
+      viewer.scene.screenSpaceCameraController.maximumZoomDistance = cap;
+    };
+    apply();
+    const t = setTimeout(apply, 300);
+    return () => clearTimeout(t);
+  }, [selectedMode, isTracked, isViewerReady, viewerRef]);
 
   // Re-fly when user picks a different ground station while already in GS POV mode
   useEffect(() => {

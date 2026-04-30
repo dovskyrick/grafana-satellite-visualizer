@@ -113,16 +113,15 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'earth' || selectedMode === 'groundstation'}
+          disabled={selectedMode === 'earth'}
           onClick={() => {
-            if (selectedMode === 'earth' || selectedMode === 'groundstation') { return; }
+            if (selectedMode === 'earth') { return; }
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsAxesDropdownOpen(false);
           }}
           title={
             selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' :
-            selectedMode === 'groundstation' ? 'Camera direction — free look in Ground Station POV' :
             'Camera direction'
           }
         >
@@ -130,7 +129,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           <ChevronDown size={16} />
         </button>
         
-        {isCameraDropdownOpen && selectedMode !== 'earth' && selectedMode !== 'groundstation' && (
+        {isCameraDropdownOpen && selectedMode !== 'earth' && (
           <div className={styles.dropdownMenu}>
             {/* Satellite Focus Mode - Satellite-centric camera views */}
             {selectedMode === 'satellite' && (
@@ -185,8 +184,8 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
               </>
             )}
             
-            {/* Celestial Map Mode - Zoom level */}
-            {selectedMode === 'celestial' && (
+            {/* Celestial Map Mode - dead code (hidden by outer guard, kept for reference) */}
+            {false && (
               <>
                 <div
                   className={`${styles.dropdownItem} ${celestialCameraView === 'zoomed-in' ? 'active' : ''}`}
@@ -221,24 +220,18 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'groundstation'}
           onClick={() => {
-            if (selectedMode === 'groundstation') { return; }
             setIsAxesDropdownOpen(!isAxesDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsCameraDropdownOpen(false);
           }}
-          title={
-            selectedMode === 'groundstation'
-              ? 'Reference axes — not applicable in Ground Station POV'
-              : 'Select visible reference axes'
-          }
+          title="Select visible reference axes"
         >
           <Move3d size={16} />
           <ChevronDown size={16} />
         </button>
         
-        {isAxesDropdownOpen && selectedMode !== 'groundstation' && (
+        {isAxesDropdownOpen && (
           <div className={styles.dropdownMenu}>
             {/* LVLH Reference Frame Toggle */}
             <div 
