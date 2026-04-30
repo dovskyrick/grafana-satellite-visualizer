@@ -753,6 +753,51 @@ function generateAnomalyWindow(): { start: number; end: number } | null {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 4 — Star Tracker stars-matched time series.
+//
+// Phase logic mirrors the plugin's Scenario 4 attitude toggle (30-min cycle,
+// minute 25 → 29 = fully-anomaly window). The cycle is anchored at the same
+// snapshot as everything else (floor(now/30min)*30min − 6 h), so a fresh
+// reload keeps the timeseries in lockstep with the cone movement.
+//
+// Output:
+//   - stars_matched = 0 during the 4-min "fully-anomaly" window (Sun in FOV)
+//   - stars_matched ≈ 12 ± 3 (smooth deterministic noise) the rest of the time
+// ---------------------------------------------------------------------------
+const STARS_STEP_S            = 30;            // one point every 30 s
+const STARS_NOMINAL            = 12;
+const STARS_HALF_HOUR_MS       = 30 * 60 * 1000;
+const STARS_ANOMALY_START_MS   = 25 * 60 * 1000;
+const STARS_ANOMALY_END_MS     = 29 * 60 * 1000;
+
+function generateStarsMatched(fromMs: number, toMs: number): Array<{ time: number; stars_matched: number }> {
+  const anchorMs = getScenario3AnchorMs();
+  const stepMs   = STARS_STEP_S * 1000;
+
+  // Snap to the anchor's grid so the 0-point columns line up exactly with
+  // the anomaly boundaries (not subject to fromMs phase drift).
+  const startT = Math.ceil((fromMs - anchorMs) / stepMs) * stepMs + anchorMs;
+
+  const points: Array<{ time: number; stars_matched: number }> = [];
+  for (let t = startT; t <= toMs; t += stepMs) {
+    const phase = ((t - anchorMs) % STARS_HALF_HOUR_MS + STARS_HALF_HOUR_MS) % STARS_HALF_HOUR_MS;
+
+    let stars: number;
+    if (phase >= STARS_ANOMALY_START_MS && phase < STARS_ANOMALY_END_MS) {
+      stars = 0;
+    } else {
+      // Deterministic smooth noise: two trig terms with non-resonant periods
+      // (≈ 17 min and ≈ 28 min, both prime-ish to the 30-min cycle), bounded
+      // to roughly ±3.  Rounded to integer count.
+      const noise = 1.6 * Math.sin(t * 6.16e-6) + 1.4 * Math.cos(t * 3.74e-6);
+      stars = Math.max(0, Math.round(STARS_NOMINAL + noise));
+    }
+    points.push({ time: t, stars_matched: stars });
+  }
+  return points;
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 function handleHealth(_req: Request, res: Response) {
@@ -827,6 +872,13 @@ function handleAnomalyWindow(_req: Request, res: Response) {
   res.json(window);
 }
 
+function handleStarsMatched(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/stars-matched  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateStarsMatched(fromMs, toMs));
+}
+
 function handleSatellites(req: Request, res: Response) {
   const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
   const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
@@ -864,6 +916,7 @@ function main() {
   app.get('/api/link-status',          handleLinkStatus);
   app.get('/api/link-anomaly',         handleCommAnomaly);
   app.get('/api/link-anomaly-window',  handleAnomalyWindow);
+  app.get('/api/stars-matched',        handleStarsMatched);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);
