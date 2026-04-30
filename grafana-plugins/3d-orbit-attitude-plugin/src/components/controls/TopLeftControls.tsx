@@ -194,7 +194,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                     setIsCameraDropdownOpen(false);
                   }}
                 >
-                  <span className={styles.dropdownItemLabel}>🔍 Zoomed In</span>
+                  <span className={styles.dropdownItemLabel}>🔍 90° View</span>
                   <span className={styles.dropdownItemDescription}>Close-up celestial view</span>
                 </div>
                 <div
@@ -204,7 +204,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
                     setIsCameraDropdownOpen(false);
                   }}
                 >
-                  <span className={styles.dropdownItemLabel}>🌌 Total Map</span>
+                  <span className={styles.dropdownItemLabel}>🌐 360° View</span>
                   <span className={styles.dropdownItemDescription}>Full celestial sphere view</span>
                 </div>
               </>
