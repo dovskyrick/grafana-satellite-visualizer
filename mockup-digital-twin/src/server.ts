@@ -137,6 +137,7 @@ const enum ScenarioId {
   ConfidenceAssessment = 2,
   CommAnomaly          = 3,
   StarTrackerAnomaly   = 4,
+  GSAntennaAnomaly     = 5,
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +414,19 @@ function generateScenario3(fromMs: number, toMs: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 5 — Ground Station Antenna Anomaly
+//
+// Identical satellite data to Scenario 3. The plugin applies the same
+// GS-pointing orientation override so the antenna tracks the ground station
+// perfectly throughout — the satellite is blameless. The comm anomaly is
+// injected only in the time-series endpoints (/api/sc5-*) and is attributed
+// to the ground-station antenna hardware, not to satellite attitude.
+// ---------------------------------------------------------------------------
+function generateScenario5(fromMs: number, toMs: number) {
+  return generateScenario3(fromMs, toMs);
+}
+
+// ---------------------------------------------------------------------------
 // Scenario 4 — Star Tracker Anomaly
 //
 // Identical orbit to Scenario 3 (same anchor, same circular orbit params).
@@ -522,6 +536,10 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 
   if (scenario === ScenarioId.StarTrackerAnomaly) {
     return generateScenario4(fromMs, toMs);
+  }
+
+  if (scenario === ScenarioId.GSAntennaAnomaly) {
+    return generateScenario5(fromMs, toMs);
   }
 
   return [...satellitesData, groundStationsFrame];
@@ -897,6 +915,42 @@ function handleAnomalyWindow(_req: Request, res: Response) {
   res.json(window);
 }
 
+// ---------------------------------------------------------------------------
+// Scenario 5 — GS Antenna Anomaly time-series handlers
+// Identical data to Scenario 3 counterparts; separate endpoints so Grafana
+// dashboards for the two scenarios can be independently configured.
+// ---------------------------------------------------------------------------
+function handleSc5Elevation(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/sc5-link-elevation  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateElevation(fromMs, toMs));
+}
+
+function handleSc5LinkStatus(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/sc5-link-status  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateLinkStatus(fromMs, toMs));
+}
+
+function handleSc5CommAnomaly(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/sc5-link-anomaly  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateCommAnomaly(fromMs, toMs));
+}
+
+function handleSc5AnomalyWindow(_req: Request, res: Response) {
+  console.log(`[${new Date().toISOString()}] GET /api/sc5-link-anomaly-window`);
+  const window = generateAnomalyWindow();
+  if (!window) {
+    res.status(404).json({ error: 'No anomaly window found in current 12h horizon' });
+    return;
+  }
+  res.json(window);
+}
+
 function handleStarsMatched(req: Request, res: Response) {
   const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
   const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
@@ -948,6 +1002,10 @@ function main() {
   app.get('/api/link-status',          handleLinkStatus);
   app.get('/api/link-anomaly',         handleCommAnomaly);
   app.get('/api/link-anomaly-window',  handleAnomalyWindow);
+  app.get('/api/sc5-link-elevation',       handleSc5Elevation);
+  app.get('/api/sc5-link-status',          handleSc5LinkStatus);
+  app.get('/api/sc5-link-anomaly',         handleSc5CommAnomaly);
+  app.get('/api/sc5-link-anomaly-window',  handleSc5AnomalyWindow);
   app.get('/api/stars-matched',        handleStarsMatched);
   app.get('/api/tracker-anomaly',      handleTrackerAnomaly);
 

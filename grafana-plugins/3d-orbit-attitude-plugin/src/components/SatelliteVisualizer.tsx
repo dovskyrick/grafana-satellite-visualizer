@@ -958,7 +958,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         // (Cesium's own ModelVisualizer interprets Entity.orientation in its local
         // frame, which for a FIXED-frame position is also ECEF, so the model and
         // the cone agree.)
-        if (options.scenarioId === ScenarioId.Scenario3 && parsedGroundStations.length > 0) {
+        if ((options.scenarioId === ScenarioId.Scenario3 || options.scenarioId === ScenarioId.Scenario5) && parsedGroundStations.length > 0) {
           const targetGs = parsedGroundStations[0];
           const gsEcef   = Cartesian3.fromDegrees(targetGs.longitude, targetGs.latitude, targetGs.altitude);
 
@@ -1001,23 +1001,26 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
               const gsQuat = Quaternion.fromRotationMatrix(rEcef);
 
-              // During the anomaly window smoothly ramp a 20° tilt around body X
-              // in and back out — triangle profile matching the comm_anomaly series.
-              const win = anomalyWindowRef.current;
-              if (win) {
-                const tMs = JulianDate.toDate(time).getTime();
-                if (tMs >= win.start && tMs <= win.end) {
-                  const span = win.end - win.start;
-                  const mid  = win.start + span / 2;
-                  // t goes 0→1 at the midpoint then 1→0 at the end
-                  const t = 1 - Math.abs((tMs - mid) / (span / 2));
-                  const tiltAngle = t * 20 * Math.PI / 180;
-                  const tiltQuat = Quaternion.fromAxisAngle(
-                    new Cartesian3(1, 0, 0),
-                    tiltAngle,
-                    new Quaternion()
-                  );
-                  return Quaternion.multiply(gsQuat, tiltQuat, new Quaternion());
+              // Scenario 3 only: during the anomaly window smoothly ramp a 20°
+              // tilt around body X in and back out — matching the comm_anomaly
+              // series. Scenario 5 keeps perfect GS pointing throughout (fault
+              // is blamed on the ground-station antenna, not the satellite).
+              if (options.scenarioId === ScenarioId.Scenario3) {
+                const win = anomalyWindowRef.current;
+                if (win) {
+                  const tMs = JulianDate.toDate(time).getTime();
+                  if (tMs >= win.start && tMs <= win.end) {
+                    const span = win.end - win.start;
+                    const mid  = win.start + span / 2;
+                    const t = 1 - Math.abs((tMs - mid) / (span / 2));
+                    const tiltAngle = t * 20 * Math.PI / 180;
+                    const tiltQuat = Quaternion.fromAxisAngle(
+                      new Cartesian3(1, 0, 0),
+                      tiltAngle,
+                      new Quaternion()
+                    );
+                    return Quaternion.multiply(gsQuat, tiltQuat, new Quaternion());
+                  }
                 }
               }
 

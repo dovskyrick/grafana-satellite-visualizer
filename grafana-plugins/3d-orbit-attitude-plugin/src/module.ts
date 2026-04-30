@@ -24,7 +24,7 @@ export const plugin = new PanelPlugin<SimpleOptions>(SatelliteVisualizer).setPan
           { value: ScenarioId.Scenario2,      label: 'Scenario 2 – Confidence Assessment' },
           { value: ScenarioId.Scenario3,      label: 'Scenario 3 – Communication Anomaly' },
           { value: ScenarioId.Scenario4,      label: 'Scenario 4 – Star Tracker Anomaly' },
-          { value: ScenarioId.Scenario5,      label: 'Scenario 5 (reserved)' },
+          { value: ScenarioId.Scenario5,      label: 'Scenario 5 – GS Antenna Anomaly' },
         ],
       },
       defaultValue: ScenarioId.Default,
