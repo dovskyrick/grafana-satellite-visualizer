@@ -774,9 +774,11 @@ function generateStarsMatched(fromMs: number, toMs: number): Array<{ time: numbe
   const anchorMs = getScenario3AnchorMs();
   const stepMs   = STARS_STEP_S * 1000;
 
-  // Snap to the anchor's grid so the 0-point columns line up exactly with
-  // the anomaly boundaries (not subject to fromMs phase drift).
-  const startT = Math.ceil((fromMs - anchorMs) / stepMs) * stepMs + anchorMs;
+  // No data before the anchor (floor(now/30min)*30min − 6h) — same cap as
+  // every other Scenario 4 series. Snap to the anchor's grid so phase
+  // boundaries align exactly with the anomaly windows.
+  const effectiveFrom = Math.max(fromMs, anchorMs);
+  const startT = Math.ceil((effectiveFrom - anchorMs) / stepMs) * stepMs + anchorMs;
 
   const points: Array<{ time: number; stars_matched: number }> = [];
   for (let t = startT; t <= toMs; t += stepMs) {
