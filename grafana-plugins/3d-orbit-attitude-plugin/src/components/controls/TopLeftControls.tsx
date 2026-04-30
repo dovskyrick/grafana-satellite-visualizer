@@ -108,8 +108,8 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
         )}
       </div>
       
-      {/* Camera direction - hidden in Celestial Map mode (replaced by 90°/360° toggle) */}
-      {selectedMode !== 'celestial' && (
+      {/* Camera direction - hidden in Celestial Map and Ground Station POV */}
+      {selectedMode !== 'celestial' && selectedMode !== 'groundstation' && (
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
@@ -216,8 +216,8 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       </div>
       )}
 
-      {/* Reference Axes Visibility Toggle - hidden in Celestial Map mode */}
-      {selectedMode !== 'celestial' && (
+      {/* Reference Axes Visibility Toggle - hidden in Celestial Map and Ground Station POV */}
+      {selectedMode !== 'celestial' && selectedMode !== 'groundstation' && (
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
