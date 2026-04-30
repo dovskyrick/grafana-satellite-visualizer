@@ -1545,12 +1545,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 availability={satellite.availability}
                 tracked={isThisSatelliteTracked}
               >
-                {/* Visible marker for debugging tracking */}
+                {/* Tracking anchor — kept as invisible as possible */}
                 <PointGraphics 
                   pixelSize={15}
-                  color={Color.YELLOW}
-                  outlineColor={Color.BLACK}
-                  outlineWidth={2}
+                  color={Color.fromAlpha(Color.BLACK, 0.0)}
+                  outlineColor={Color.fromAlpha(Color.BLACK, 0.0)}
+                  outlineWidth={0}
                 />
                 <LabelGraphics
                   text={satellite.name}
