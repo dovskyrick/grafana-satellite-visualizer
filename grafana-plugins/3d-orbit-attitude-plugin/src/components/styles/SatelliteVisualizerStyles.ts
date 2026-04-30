@@ -711,17 +711,17 @@ export const getStyles = () => {
     cesiumControls: css`
       /* Move Cesium's built-in controls to the left of our custom buttons */
       .cesium-viewer-toolbar {
-        right: 120px !important; /* Push to left of our buttons */
+        right: 60px !important;
         top: 10px !important;
       }
       
       .cesium-baseLayerPickerContainer {
-        right: 120px !important; /* Push to left of our buttons */
+        right: 60px !important;
         top: 10px !important;
       }
       
       .cesium-projectionPickerContainer {
-        right: 120px !important; /* Stack to the left */
+        right: 60px !important;
         top: 10px !important;
       }
     `,
