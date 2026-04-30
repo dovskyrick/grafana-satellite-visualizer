@@ -218,18 +218,24 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
+          disabled={selectedMode === 'groundstation'}
           onClick={() => {
+            if (selectedMode === 'groundstation') { return; }
             setIsAxesDropdownOpen(!isAxesDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsCameraDropdownOpen(false);
           }}
-          title="Select visible reference axes"
+          title={
+            selectedMode === 'groundstation'
+              ? 'Reference axes — not applicable in Ground Station POV'
+              : 'Select visible reference axes'
+          }
         >
           <Move3d size={16} />
           <ChevronDown size={16} />
         </button>
         
-        {isAxesDropdownOpen && (
+        {isAxesDropdownOpen && selectedMode !== 'groundstation' && (
           <div className={styles.dropdownMenu}>
             {/* LVLH Reference Frame Toggle */}
             <div 
