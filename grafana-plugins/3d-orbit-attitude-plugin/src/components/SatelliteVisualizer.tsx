@@ -1079,7 +1079,27 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 zEcef.x, zEcef.y, zEcef.z,
               ]);
 
-              return Quaternion.fromRotationMatrix(rEcef);
+              const baseQuat = Quaternion.fromRotationMatrix(rEcef);
+
+              // Toggle test: alternate nominal (body +Z → Sun) and anomaly
+              // (body +X → Sun) every 60 s of simulation time. Real anomaly-
+              // window selection (occlusion-aware) will replace this later.
+              //
+              // anomalyQuat = baseQuat * rotY(−90°)  because rotating −90° around
+              // body Y maps body +X onto body +Z, so what was previously
+              // "+Z → Sun" under baseQuat becomes "+X → Sun" under anomalyQuat.
+              const tMs = JulianDate.toDate(time).getTime();
+              const minute = Math.floor(tMs / 60000);
+              if (minute % 2 === 1) {
+                const rotYminus90 = Quaternion.fromAxisAngle(
+                  Cartesian3.UNIT_Y,
+                  -Math.PI / 2,
+                  new Quaternion()
+                );
+                return Quaternion.multiply(baseQuat, rotYminus90, new Quaternion());
+              }
+
+              return baseQuat;
             }, false);
           });
         }

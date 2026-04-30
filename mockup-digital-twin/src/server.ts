@@ -444,15 +444,31 @@ function generateScenario4(fromMs: number, toMs: number) {
     .filter(p => p.time >= fromMs)
     .map(p => ({ ...p, qx: 0, qy: 0, qz: 0, qs: 1 }));
 
-  const starTrackerSensor = [{
-    id:          'sat-st-z',
-    name:        'Star Tracker',
-    fov:         20,
-    orientation: { qx: 0, qy: 0, qz: 0, qw: 1 }, // identity → boresight = +Z body
-    color:       '#FFD700',
-  }];
+  // Two co-mounted sensors:
+  //   - "Solar Panel Optimal Direction" on body +Z (identity orientation).
+  //     Tracks the Sun in nominal mode; left in place for reference.
+  //   - "Star Tracker" on body +X (rotation: −90° around body Y maps sensor
+  //     local +Z onto body +X, so the sensor cone aligns with body +X).
+  // The plugin's Scenario 4 CallbackProperty toggles the satellite body
+  // attitude between nominal (body +Z → Sun) and anomaly (body +X → Sun).
+  const sensors = [
+    {
+      id:          'sat-solar-z',
+      name:        'Solar Panel Optimal Direction',
+      fov:         20,
+      orientation: { qx: 0, qy: 0, qz: 0, qw: 1 }, // identity → boresight = +Z body
+      color:       '#FFD700',
+    },
+    {
+      id:          'sat-st-x',
+      name:        'Star Tracker',
+      fov:         20,
+      orientation: { qx: 0, qy: 0.7071, qz: 0, qw: 0.7071 }, // +90° around Y → boresight = +X body
+      color:       '#FF4D6D',
+    },
+  ];
 
-  const satFrame = buildSatelliteFrame('sat-st', 'SAT-ST', points, starTrackerSensor, lastObservedMs);
+  const satFrame = buildSatelliteFrame('sat-st', 'SAT-ST', points, sensors, lastObservedMs);
   return [satFrame];
 }
 
