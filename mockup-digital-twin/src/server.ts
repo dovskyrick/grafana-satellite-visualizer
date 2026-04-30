@@ -478,7 +478,7 @@ function generateScenario4(fromMs: number, toMs: number) {
       name:        'Star Tracker',
       fov:         20,
       orientation: { qx: 0, qy: 0.7071, qz: 0, qw: 0.7071 }, // +90° around Y → boresight = +X body
-      color:       '#FF4D6D',
+      color:       '#2f8a47',
     },
   ];
 
