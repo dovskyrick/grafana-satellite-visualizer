@@ -64,6 +64,7 @@ import { computeVisibilityLoS } from 'utils/projections';
 import { generateFOVRing, generateEarthDiskRing, generateDirectionDiskRing, filledRingToSvgPath } from 'utils/totalMapProjection';
 import { TopLeftControls } from './controls/TopLeftControls';
 import { SidebarControls } from './controls/SidebarControls';
+import { CelestialWelcomeModal } from './controls/CelestialWelcomeModal';
 
 import { Viewer, Clock, Entity, PointGraphics, LabelGraphics, EllipseGraphics } from 'resium';
 import {
@@ -229,6 +230,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // Camera view states - different per mode
   const [satelliteCameraView, setSatelliteCameraView] = useState<'nadir' | 'cross-track' | 'along-track' | 'fixed'>('nadir');
   const [celestialCameraView, setCelestialCameraView] = useState<'zoomed-in' | 'total-map'>('total-map');
+  const [showCelestialWelcome, setShowCelestialWelcome] = useState(false);
   const [earthCameraView, setEarthCameraView] = useState<'icrf' | 'itrf' | 'gcrf' | 'teme'>('icrf');
   
   // Reference axes visibility toggles (common to all modes)
@@ -698,6 +700,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
   // Auto-track satellite and adjust camera based on mode
   useEffect(() => {
+    if (selectedMode === 'celestial' && !localStorage.getItem('celestial_map_welcomed')) {
+      setShowCelestialWelcome(true);
+    }
     if (selectedMode === 'satellite' || selectedMode === 'celestial') {
       // Set FOV: wider angle for celestial map, Cesium default for satellite focus
       const viewer = viewerRef.current?.cesiumElement;
@@ -1798,6 +1803,17 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             className={options.showCredits ? styles.showCesiumCredits : styles.hideCesiumCredits}
           ></div>
           
+          {/* Celestial Map welcome modal — shown once per browser session */}
+          {showCelestialWelcome && (
+            <CelestialWelcomeModal
+              onSelect={(view) => {
+                setCelestialCameraView(view);
+                localStorage.setItem('celestial_map_welcomed', 'true');
+                setShowCelestialWelcome(false);
+              }}
+            />
+          )}
+
           {/* Compact Legend Panel - Bottom Right — hidden in Ground Station POV */}
           <div className={`${styles.legendPanel} ${isLegendCollapsed ? 'collapsed' : ''}`} style={selectedMode === 'groundstation' ? { display: 'none' } : {}}>
             <div 
