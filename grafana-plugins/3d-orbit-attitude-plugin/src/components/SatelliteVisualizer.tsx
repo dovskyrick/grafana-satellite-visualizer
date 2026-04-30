@@ -1038,6 +1038,16 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         // orientation is identity, so boresight = body +Z and the cone
         // sits centred on the ☉ Sun marker in celestial mode.
         if (options.scenarioId === ScenarioId.Scenario4) {
+          // Anomaly cycle: 30-minute period anchored at floor(now / 30min) - 6h
+          // (matches the server's getScenario3AnchorMs convention). 25 min of
+          // nominal (body +Z → Sun) followed by 5 min of anomaly (body +X → Sun).
+          // Note: since 6 h is a multiple of 30 min, the anchor offset is phase-
+          // neutral; a plain `tMs % CYCLE_MS` would give the same toggle, but
+          // the anchor is kept explicit so the intent matches the server.
+          const HALF_HOUR_MS = 30 * 60 * 1000;
+          const SCENARIO4_ANCHOR_MS = Math.floor(Date.now() / HALF_HOUR_MS) * HALF_HOUR_MS - 6 * 60 * 60 * 1000;
+          const NOMINAL_PHASE_MS = 25 * 60 * 1000;
+
           parsedSatellites.forEach(sat => {
             (sat as any).orientation = new CallbackProperty((time: JulianDate) => {
               const satEcef = sat.position.getValue(time);
@@ -1081,16 +1091,16 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
               const baseQuat = Quaternion.fromRotationMatrix(rEcef);
 
-              // Toggle test: alternate nominal (body +Z → Sun) and anomaly
-              // (body +X → Sun) every 60 s of simulation time. Real anomaly-
-              // window selection (occlusion-aware) will replace this later.
+              // 30-minute cycle anchored at floor(now/30min)-6h: 25 min nominal
+              // (body +Z → Sun), then 5 min anomaly (body +X → Sun). Real,
+              // occlusion-aware window selection will replace this later.
               //
-              // anomalyQuat = baseQuat * rotY(−90°)  because rotating −90° around
-              // body Y maps body +X onto body +Z, so what was previously
-              // "+Z → Sun" under baseQuat becomes "+X → Sun" under anomalyQuat.
+              // anomalyQuat = baseQuat * rotY(−90°)  — rotating −90° around body Y
+              // maps body +X onto body +Z, so what was "+Z → Sun" under baseQuat
+              // becomes "+X → Sun" under anomalyQuat.
               const tMs = JulianDate.toDate(time).getTime();
-              const minute = Math.floor(tMs / 60000);
-              if (minute % 2 === 1) {
+              const phaseMs = ((tMs - SCENARIO4_ANCHOR_MS) % HALF_HOUR_MS + HALF_HOUR_MS) % HALF_HOUR_MS;
+              if (phaseMs >= NOMINAL_PHASE_MS) {
                 const rotYminus90 = Quaternion.fromAxisAngle(
                   Cartesian3.UNIT_Y,
                   -Math.PI / 2,
