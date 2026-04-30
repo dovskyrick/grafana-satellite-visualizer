@@ -108,13 +108,14 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
         )}
       </div>
       
-      {/* Camera direction - Options change by view mode; disabled in Earth Focus (camera is free) */}
+      {/* Camera direction - hidden in Celestial Map mode (replaced by 90°/360° toggle) */}
+      {selectedMode !== 'celestial' && (
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'earth' || selectedMode === 'groundstation' || selectedMode === 'celestial'}
+          disabled={selectedMode === 'earth' || selectedMode === 'groundstation'}
           onClick={() => {
-            if (selectedMode === 'earth' || selectedMode === 'groundstation' || selectedMode === 'celestial') { return; }
+            if (selectedMode === 'earth' || selectedMode === 'groundstation') { return; }
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsAxesDropdownOpen(false);
@@ -122,7 +123,6 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           title={
             selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' :
             selectedMode === 'groundstation' ? 'Camera direction — free look in Ground Station POV' :
-            selectedMode === 'celestial' ? 'Camera direction — use the 90°/360° toggle instead' :
             'Camera direction'
           }
         >
@@ -130,7 +130,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           <ChevronDown size={16} />
         </button>
         
-        {isCameraDropdownOpen && selectedMode !== 'earth' && selectedMode !== 'groundstation' && selectedMode !== 'celestial' && (
+        {isCameraDropdownOpen && selectedMode !== 'earth' && selectedMode !== 'groundstation' && (
           <div className={styles.dropdownMenu}>
             {/* Satellite Focus Mode - Satellite-centric camera views */}
             {selectedMode === 'satellite' && (
@@ -214,14 +214,16 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           </div>
         )}
       </div>
-      
-      {/* Reference Axes Visibility Toggle - Common to All Modes */}
+      )}
+
+      {/* Reference Axes Visibility Toggle - hidden in Celestial Map mode */}
+      {selectedMode !== 'celestial' && (
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'groundstation' || selectedMode === 'celestial'}
+          disabled={selectedMode === 'groundstation'}
           onClick={() => {
-            if (selectedMode === 'groundstation' || selectedMode === 'celestial') { return; }
+            if (selectedMode === 'groundstation') { return; }
             setIsAxesDropdownOpen(!isAxesDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsCameraDropdownOpen(false);
@@ -229,8 +231,6 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           title={
             selectedMode === 'groundstation'
               ? 'Reference axes — not applicable in Ground Station POV'
-              : selectedMode === 'celestial'
-              ? 'Reference axes — not applicable in Celestial Map mode'
               : 'Select visible reference axes'
           }
         >
@@ -238,7 +238,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           <ChevronDown size={16} />
         </button>
         
-        {isAxesDropdownOpen && selectedMode !== 'groundstation' && selectedMode !== 'celestial' && (
+        {isAxesDropdownOpen && selectedMode !== 'groundstation' && (
           <div className={styles.dropdownMenu}>
             {/* LVLH Reference Frame Toggle */}
             <div 
@@ -290,6 +290,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };
