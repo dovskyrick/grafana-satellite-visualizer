@@ -1397,7 +1397,27 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             trackedSatelliteId={trackedSatelliteId}
             styles={styles}
           />
-      
+
+          {/* Celestial view toggle — top centre, only in Celestial Map mode */}
+          {selectedMode === 'celestial' && (
+            <div className={styles.celestialViewToggle}>
+              <button
+                className={`${styles.celestialViewBtn} ${celestialCameraView === 'zoomed-in' ? 'active' : ''}`}
+                onClick={() => setCelestialCameraView('zoomed-in')}
+                title="90° pointed view"
+              >
+                90°
+              </button>
+              <button
+                className={`${styles.celestialViewBtn} ${celestialCameraView === 'total-map' ? 'active' : ''}`}
+                onClick={() => setCelestialCameraView('total-map')}
+                title="360° full sky view"
+              >
+                360°
+              </button>
+            </div>
+          )}
+
           <Viewer
         full
         animation={options.showAnimation}

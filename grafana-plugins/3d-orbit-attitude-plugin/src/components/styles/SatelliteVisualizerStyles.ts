@@ -107,6 +107,45 @@ export const getStyles = () => {
       display: flex;
       gap: 8px;
     `,
+    celestialViewToggle: css`
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+    `,
+    celestialViewBtn: css`
+      padding: 7px 14px;
+      background: rgba(50, 50, 50, 0.9);
+      color: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1;
+
+      &:first-child {
+        border-radius: 4px 0 0 4px;
+        border-right: none;
+      }
+
+      &:last-child {
+        border-radius: 0 4px 4px 0;
+      }
+
+      &:hover {
+        background: rgba(70, 70, 70, 0.9);
+        color: rgba(255, 255, 255, 0.95);
+      }
+
+      &.active {
+        background: rgba(86, 207, 225, 0.2);
+        color: #56cfe1;
+        border-color: rgba(86, 207, 225, 0.45);
+      }
+    `,
     dropdownButton: css`
       position: relative;
       display: flex;

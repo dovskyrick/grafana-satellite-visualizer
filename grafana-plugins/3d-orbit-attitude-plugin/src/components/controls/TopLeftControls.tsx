@@ -112,9 +112,9 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'earth' || selectedMode === 'groundstation'}
+          disabled={selectedMode === 'earth' || selectedMode === 'groundstation' || selectedMode === 'celestial'}
           onClick={() => {
-            if (selectedMode === 'earth' || selectedMode === 'groundstation') { return; }
+            if (selectedMode === 'earth' || selectedMode === 'groundstation' || selectedMode === 'celestial') { return; }
             setIsCameraDropdownOpen(!isCameraDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsAxesDropdownOpen(false);
@@ -122,6 +122,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           title={
             selectedMode === 'earth' ? 'Camera direction — free camera in Earth Focus mode' :
             selectedMode === 'groundstation' ? 'Camera direction — free look in Ground Station POV' :
+            selectedMode === 'celestial' ? 'Camera direction — use the 90°/360° toggle instead' :
             'Camera direction'
           }
         >
@@ -129,7 +130,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           <ChevronDown size={16} />
         </button>
         
-        {isCameraDropdownOpen && selectedMode !== 'earth' && selectedMode !== 'groundstation' && (
+        {isCameraDropdownOpen && selectedMode !== 'earth' && selectedMode !== 'groundstation' && selectedMode !== 'celestial' && (
           <div className={styles.dropdownMenu}>
             {/* Satellite Focus Mode - Satellite-centric camera views */}
             {selectedMode === 'satellite' && (
