@@ -1804,7 +1804,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             </div>
             {!isLegendCollapsed && (
               <div className={styles.legendContent}>
-              {/* Reference Frames Section */}
+              {/* Reference Frames Section — hidden in Celestial Map mode */}
+              {selectedMode !== 'celestial' && (
               <div className={styles.legendSection}>
                 <div className={styles.legendSectionTitle}>Reference Frames</div>
                 
@@ -1888,6 +1889,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   </div>
                 )}
               </div>
+              )}
               
               {/* Sensors Section - Show sensors of tracked satellite */}
               {/* Hidden in Earth Focus mode when FOV Footprint is off (sensors invisible, colors irrelevant) */}
