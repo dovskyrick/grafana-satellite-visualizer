@@ -1039,14 +1039,30 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         // sits centred on the ☉ Sun marker in celestial mode.
         if (options.scenarioId === ScenarioId.Scenario4) {
           // Anomaly cycle: 30-minute period anchored at floor(now / 30min) - 6h
-          // (matches the server's getScenario3AnchorMs convention). 25 min of
-          // nominal (body +Z → Sun) followed by 5 min of anomaly (body +X → Sun).
-          // Note: since 6 h is a multiple of 30 min, the anchor offset is phase-
+          // (matches the server's getScenario3AnchorMs convention). Schedule
+          // within each cycle:
+          //   [ 0 min, 24 min) — fully nominal (body +Z → Sun)
+          //   [24 min, 25 min) — SLERP nominal → anomaly  (1-min transition)
+          //   [25 min, 29 min) — fully anomaly (body +X → Sun)
+          //   [29 min, 30 min) — SLERP anomaly → nominal  (1-min transition)
+          //
+          // Since 6 h is a multiple of 30 min, the anchor offset is phase-
           // neutral; a plain `tMs % CYCLE_MS` would give the same toggle, but
           // the anchor is kept explicit so the intent matches the server.
-          const HALF_HOUR_MS = 30 * 60 * 1000;
-          const SCENARIO4_ANCHOR_MS = Math.floor(Date.now() / HALF_HOUR_MS) * HALF_HOUR_MS - 6 * 60 * 60 * 1000;
-          const NOMINAL_PHASE_MS = 25 * 60 * 1000;
+          const HALF_HOUR_MS         = 30 * 60 * 1000;
+          const TRANSITION_MS        =  1 * 60 * 1000;
+          const SCENARIO4_ANCHOR_MS  = Math.floor(Date.now() / HALF_HOUR_MS) * HALF_HOUR_MS - 6 * 60 * 60 * 1000;
+          const NOM_TO_ANOM_START_MS = 24 * 60 * 1000; // start of nominal → anomaly slerp
+          const NOM_TO_ANOM_END_MS   = 25 * 60 * 1000; // end of slerp; fully anomaly
+          const ANOM_TO_NOM_START_MS = 29 * 60 * 1000; // start of anomaly → nominal slerp
+          // ANOM_TO_NOM_END_MS = HALF_HOUR_MS (30 min)
+
+          // rotY(−90°) is constant; build once and reuse every frame.
+          const ROT_Y_MINUS_90 = Quaternion.fromAxisAngle(
+            Cartesian3.UNIT_Y,
+            -Math.PI / 2,
+            new Quaternion()
+          );
 
           parsedSatellites.forEach(sat => {
             (sat as any).orientation = new CallbackProperty((time: JulianDate) => {
@@ -1091,25 +1107,26 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
               const baseQuat = Quaternion.fromRotationMatrix(rEcef);
 
-              // 30-minute cycle anchored at floor(now/30min)-6h: 25 min nominal
-              // (body +Z → Sun), then 5 min anomaly (body +X → Sun). Real,
-              // occlusion-aware window selection will replace this later.
-              //
               // anomalyQuat = baseQuat * rotY(−90°)  — rotating −90° around body Y
               // maps body +X onto body +Z, so what was "+Z → Sun" under baseQuat
               // becomes "+X → Sun" under anomalyQuat.
+              const anomalyQuat = Quaternion.multiply(baseQuat, ROT_Y_MINUS_90, new Quaternion());
+
               const tMs = JulianDate.toDate(time).getTime();
               const phaseMs = ((tMs - SCENARIO4_ANCHOR_MS) % HALF_HOUR_MS + HALF_HOUR_MS) % HALF_HOUR_MS;
-              if (phaseMs >= NOMINAL_PHASE_MS) {
-                const rotYminus90 = Quaternion.fromAxisAngle(
-                  Cartesian3.UNIT_Y,
-                  -Math.PI / 2,
-                  new Quaternion()
-                );
-                return Quaternion.multiply(baseQuat, rotYminus90, new Quaternion());
-              }
 
-              return baseQuat;
+              if (phaseMs < NOM_TO_ANOM_START_MS) {
+                return baseQuat;
+              }
+              if (phaseMs < NOM_TO_ANOM_END_MS) {
+                const t = (phaseMs - NOM_TO_ANOM_START_MS) / TRANSITION_MS;
+                return Quaternion.slerp(baseQuat, anomalyQuat, t, new Quaternion());
+              }
+              if (phaseMs < ANOM_TO_NOM_START_MS) {
+                return anomalyQuat;
+              }
+              const t = (phaseMs - ANOM_TO_NOM_START_MS) / TRANSITION_MS;
+              return Quaternion.slerp(anomalyQuat, baseQuat, t, new Quaternion());
             }, false);
           });
         }
