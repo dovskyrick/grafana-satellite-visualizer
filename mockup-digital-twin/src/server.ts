@@ -798,6 +798,29 @@ function generateStarsMatched(fromMs: number, toMs: number): Array<{ time: numbe
 }
 
 // ---------------------------------------------------------------------------
+// Scenario 4 — Star Tracker Anomaly pulse series.
+//
+// Structurally identical to generateCommAnomaly (same time grid via
+// computeLinkHealthPoints, same anchor, same filter pattern). Only the
+// anomaly mask differs: instead of triangulating the middle third of the
+// second link-contact window, this one raises a flat 100 during the
+// 4-minute fully-anomaly phase of every 30-minute cycle (phase ∈ [25,29) min).
+// ---------------------------------------------------------------------------
+function generateTrackerAnomaly(fromMs: number, toMs: number): Array<{ time: number; tracker_anomaly: number }> {
+  const anchorMs = getScenario3AnchorMs();
+  const points   = computeLinkHealthPoints(anchorMs, toMs).map(p => ({ time: p.time, tracker_anomaly: 0 }));
+
+  for (let i = 0; i < points.length; i++) {
+    const phase = ((points[i].time - anchorMs) % STARS_HALF_HOUR_MS + STARS_HALF_HOUR_MS) % STARS_HALF_HOUR_MS;
+    if (phase >= STARS_ANOMALY_START_MS && phase < STARS_ANOMALY_END_MS) {
+      points[i].tracker_anomaly = 100;
+    }
+  }
+
+  return points.filter(p => p.time >= fromMs);
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 function handleHealth(_req: Request, res: Response) {
@@ -879,6 +902,13 @@ function handleStarsMatched(req: Request, res: Response) {
   res.json(generateStarsMatched(fromMs, toMs));
 }
 
+function handleTrackerAnomaly(req: Request, res: Response) {
+  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  console.log(`[${new Date().toISOString()}] GET /api/tracker-anomaly  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
+  res.json(generateTrackerAnomaly(fromMs, toMs));
+}
+
 function handleSatellites(req: Request, res: Response) {
   const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
   const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
@@ -917,6 +947,7 @@ function main() {
   app.get('/api/link-anomaly',         handleCommAnomaly);
   app.get('/api/link-anomaly-window',  handleAnomalyWindow);
   app.get('/api/stars-matched',        handleStarsMatched);
+  app.get('/api/tracker-anomaly',      handleTrackerAnomaly);
 
   app.listen(PORT, () => {
     console.log(`Mockup Digital Twin running on http://localhost:${PORT}`);
