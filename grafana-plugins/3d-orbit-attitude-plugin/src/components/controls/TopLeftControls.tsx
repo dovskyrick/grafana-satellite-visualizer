@@ -218,9 +218,9 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
       <div style={{ position: 'relative' }}>
         <button
           className={styles.dropdownButton}
-          disabled={selectedMode === 'groundstation'}
+          disabled={selectedMode === 'groundstation' || selectedMode === 'celestial'}
           onClick={() => {
-            if (selectedMode === 'groundstation') { return; }
+            if (selectedMode === 'groundstation' || selectedMode === 'celestial') { return; }
             setIsAxesDropdownOpen(!isAxesDropdownOpen);
             setIsModeDropdownOpen(false);
             setIsCameraDropdownOpen(false);
@@ -228,6 +228,8 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           title={
             selectedMode === 'groundstation'
               ? 'Reference axes — not applicable in Ground Station POV'
+              : selectedMode === 'celestial'
+              ? 'Reference axes — not applicable in Celestial Map mode'
               : 'Select visible reference axes'
           }
         >
@@ -235,7 +237,7 @@ export const TopLeftControls: React.FC<TopLeftControlsProps> = ({
           <ChevronDown size={16} />
         </button>
         
-        {isAxesDropdownOpen && selectedMode !== 'groundstation' && (
+        {isAxesDropdownOpen && selectedMode !== 'groundstation' && selectedMode !== 'celestial' && (
           <div className={styles.dropdownMenu}>
             {/* LVLH Reference Frame Toggle */}
             <div 
