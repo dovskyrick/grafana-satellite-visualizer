@@ -6,7 +6,19 @@ datasources:
     access: proxy
     orgId: 1
     uid: testdata
+    isDefault: false
+    version: 1
+    editable: true
+
+  - name: DigitalTwin
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    orgId: 1
+    uid: cfkgq9jefjsw0e
     isDefault: true
     version: 1
     editable: true
+    jsonData:
+      allowedHosts:
+        - ${DIGITAL_TWIN_URL}
 

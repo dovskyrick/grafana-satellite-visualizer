@@ -16,6 +16,7 @@ primary_region = 'lhr'  # London - closest to you in Portugal
   GF_AUTH_ANONYMOUS_ORG_ROLE = "Viewer"
   GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/etc/grafana/provisioning/dashboards/satellite-demo.json"
   GF_INSTALL_PLUGINS = ""
+  DIGITAL_TWIN_URL = "http://satellite-twin.internal:3001"
 
 [http_service]
   internal_port = 3000

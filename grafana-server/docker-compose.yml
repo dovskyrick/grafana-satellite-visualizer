@@ -30,6 +30,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       # Enable logging for debugging
       - GF_LOG_LEVEL=debug
+      # Digital twin URL for datasource provisioning
+      - DIGITAL_TWIN_URL=http://mockup-twin:3001
     volumes:
       # Mount the plugin dist folders (note: relative path from grafana-server/ to grafana-plugins/)
       - ../grafana-plugins/test-plugin/the-cube-panel:/var/lib/grafana/plugins/the-cube-panel
