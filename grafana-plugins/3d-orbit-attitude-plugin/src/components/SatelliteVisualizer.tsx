@@ -211,6 +211,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
   const [timestamp, setTimestamp] = useState<JulianDate | null>(null);
   const [overlayClockTime, setOverlayClockTime] = useState<JulianDate | null>(null);
+  const [dataRange, setDataRange] = useState<{ start: JulianDate; stop: JulianDate } | null>(null);
+  const [outOfRangeReason, setOutOfRangeReason] = useState<'data' | 'grafana' | null>(null);
   const [satellites, setSatellites] = useState<ParsedSatellite[]>([]);
   const [groundStations, setGroundStations] = useState<GroundStation[]>([]);
   const [trackedSatelliteId, setTrackedSatelliteId] = useState<string | null>(null);
@@ -830,6 +832,41 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     };
   }, [selectedMode, isViewerReady, viewerRef]);
 
+  // Poll the live Cesium clock every 500 ms to detect when it drifts outside the data
+  // or Grafana time window. We cannot use `timestamp` state here because it is only
+  // updated on initial load / Grafana events — the Cesium clock runs independently.
+  useEffect(() => {
+    if (!isViewerReady) { setOutOfRangeReason(null); return; }
+
+    const grafanaStart = JulianDate.fromDate(timeRange.from.toDate());
+    const grafanaStop  = JulianDate.fromDate(timeRange.to.toDate());
+
+    const check = () => {
+      const viewer = viewerRef.current?.cesiumElement;
+      if (!viewer) { return; }
+      const now = viewer.clock.currentTime;
+
+      const outsideGrafana =
+        JulianDate.compare(now, grafanaStart) < 0 ||
+        JulianDate.compare(now, grafanaStop)  > 0;
+
+      if (outsideGrafana) { setOutOfRangeReason('grafana'); return; }
+
+      if (dataRange) {
+        const outsideData =
+          JulianDate.compare(now, dataRange.start) < 0 ||
+          JulianDate.compare(now, dataRange.stop)  > 0;
+        if (outsideData) { setOutOfRangeReason('data'); return; }
+      }
+
+      setOutOfRangeReason(null);
+    };
+
+    check();
+    const id = setInterval(check, 500);
+    return () => clearInterval(id);
+  }, [isViewerReady, dataRange, timeRange, viewerRef]);
+
   // Re-fly when user picks a different ground station while already in GS POV mode
   useEffect(() => {
     if (selectedMode !== 'groundstation' || !trackedGroundStationId) { return; }
@@ -1197,6 +1234,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             // Start 1 s into the trajectory so the interpolator has a left-side
             // neighbour from the very first frame — prevents camera losing track at T=0
             setTimestamp(JulianDate.addSeconds(firstInterval.start, 1, new JulianDate()));
+            setDataRange({ start: firstInterval.start, stop: firstInterval.stop });
           }
         }
       } catch (error) {
@@ -1876,6 +1914,71 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               }}
             />
           )}
+
+          {/* Out-of-range banner — appears when clock moves outside data or Grafana time bounds */}
+          {outOfRangeReason && dataRange && (() => {
+            const jumpStart  = JulianDate.addSeconds(dataRange.start, 1, new JulianDate());
+            const jumpEnd    = JulianDate.addSeconds(dataRange.stop, -1, new JulianDate());
+            const jumpMiddle = JulianDate.addSeconds(
+              dataRange.start,
+              JulianDate.secondsDifference(dataRange.stop, dataRange.start) / 2,
+              new JulianDate()
+            );
+            const isGrafanaLimit = outOfRangeReason === 'grafana';
+            return (
+              <div style={{
+                position: 'absolute',
+                bottom: '70px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(20, 20, 28, 0.93)',
+                border: '1px solid rgba(255,255,255,0.18)',
+                borderRadius: '10px',
+                padding: '12px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '10px',
+                zIndex: 50,
+                pointerEvents: 'auto',
+                minWidth: '300px',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+              }}>
+                <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 500, textAlign: 'center' }}>
+                  No trajectory data at this time
+                </span>
+                {isGrafanaLimit && (
+                  <span style={{ color: 'rgba(255,200,80,0.85)', fontSize: '11px', textAlign: 'center', lineHeight: 1.4 }}>
+                    Outside the Grafana time window — zoom out the time picker above to load more data
+                  </span>
+                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {([
+                    { label: 'Jump to start',  time: jumpStart  },
+                    { label: 'Jump to middle', time: jumpMiddle },
+                    { label: 'Jump to end',    time: jumpEnd    },
+                  ] as Array<{ label: string; time: JulianDate }>).map(({ label, time }) => (
+                    <button
+                      key={label}
+                      onClick={() => setTimestamp(time)}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.85)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Compact Legend Panel - Bottom Right — hidden in Ground Station POV */}
           <div className={`${styles.legendPanel} ${isLegendCollapsed ? 'collapsed' : ''}`} style={selectedMode === 'groundstation' ? { display: 'none' } : {}}>
