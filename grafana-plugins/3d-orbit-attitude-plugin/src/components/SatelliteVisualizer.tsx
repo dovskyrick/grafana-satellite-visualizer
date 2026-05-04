@@ -791,20 +791,44 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     prevModeRef.current = selectedMode;
   }, [selectedMode, isTracked, trackedSatelliteId, trackedGroundStationId, groundStations, flyToSatelliteNadirView, viewerRef]);
 
-  // Enforce zoom distance caps per mode — runs after tracking changes settle
-  // (Cesium resets maximumZoomDistance when detaching trackedEntity, so we re-apply with a delay)
+  // Zoom caps for satellite/celestial modes via the standard controller property
   useEffect(() => {
-    const earthRadius = 6378137;
+    if (selectedMode === 'earth') { return; }
     const apply = () => {
       const viewer = viewerRef.current?.cesiumElement;
       if (!viewer) { return; }
-      const cap = selectedMode === 'earth' ? earthRadius * 0.5 : earthRadius * 3;
-      viewer.scene.screenSpaceCameraController.maximumZoomDistance = cap;
+      viewer.scene.screenSpaceCameraController.maximumZoomDistance = 6378137 * 3;
     };
     apply();
     const t = setTimeout(apply, 300);
     return () => clearTimeout(t);
   }, [selectedMode, isTracked, isViewerReady, viewerRef]);
+
+  // Earth Focus zoom cap — preRender clamp because maximumZoomDistance is ignored in free-camera mode
+  useEffect(() => {
+    if (selectedMode !== 'earth') { return; }
+    const viewer = viewerRef.current?.cesiumElement;
+    if (!viewer) { return; }
+
+    const EARTH_RADIUS = 6378137;
+    const MAX_DIST = EARTH_RADIUS * 4; // ~25,500 km from Earth centre
+
+    const clamp = () => {
+      const pos = viewer.camera.position;
+      const mag = Cartesian3.magnitude(pos);
+      if (mag > MAX_DIST) {
+        const scale = MAX_DIST / mag;
+        viewer.camera.position = new Cartesian3(pos.x * scale, pos.y * scale, pos.z * scale);
+      }
+    };
+
+    viewer.scene.preRender.addEventListener(clamp);
+    return () => {
+      if (!viewer.isDestroyed()) {
+        viewer.scene.preRender.removeEventListener(clamp);
+      }
+    };
+  }, [selectedMode, isViewerReady, viewerRef]);
 
   // Re-fly when user picks a different ground station while already in GS POV mode
   useEffect(() => {
