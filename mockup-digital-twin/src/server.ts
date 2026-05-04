@@ -568,10 +568,14 @@ function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; 
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 2 — in-memory confidence store.
-// Resets on server restart (prototype only). Keyed by satellite id.
+// Scenario 2 — in-memory confidence store with 10-minute TTL.
+// Values expire automatically; no background job needed — expiry is checked
+// lazily on each GET. Keyed by satellite id.
 // ---------------------------------------------------------------------------
-const scenario2ConfidenceStore: Record<string, number> = {};
+const CONFIDENCE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+interface ConfidenceEntry { value: number; resetAt: number; }
+const scenario2ConfidenceStore: Record<string, ConfidenceEntry> = {};
 
 // ---------------------------------------------------------------------------
 // Confidence table — static metadata per scenario, time-range independent.
@@ -612,8 +616,11 @@ function generateConfidenceTable(scenario: number) {
   if (scenario === ScenarioId.ConfidenceAssessment) {
     // -1 = unassigned (Grafana value mapping should display this as "?")
     // Once the operator submits via the plugin, the stored value replaces -1.
-    const conf2a = scenario2ConfidenceStore['sat-2a'] ?? -1;
-    const conf2b = scenario2ConfidenceStore['sat-2b'] ?? -1;
+    const now = Date.now();
+    const entry2a = scenario2ConfidenceStore['sat-2a'];
+    const entry2b = scenario2ConfidenceStore['sat-2b'];
+    const conf2a = (entry2a && now < entry2a.resetAt) ? entry2a.value : -1;
+    const conf2b = (entry2b && now < entry2b.resetAt) ? entry2b.value : -1;
     return [
       row('SAT-1',   9,       600,  tcaMs - 2 * 3600 * 1000,   'Helios Catalogue'),
       row('SAT-2-A', conf2a,  100,  tcaMs - 5 * 3600 * 1000,   'Nadir Systems TLE'),
@@ -860,8 +867,8 @@ function handleConfidenceUpdate(req: Request, res: Response) {
     return;
   }
   const value = Math.round(Math.min(10, Math.max(0, Number(confidence))) * 100) / 100;
-  scenario2ConfidenceStore[id] = value;
-  console.log(`[${new Date().toISOString()}] POST /api/confidence  id=${id}  confidence=${value}`);
+  scenario2ConfidenceStore[id] = { value, resetAt: Date.now() + CONFIDENCE_TTL_MS };
+  console.log(`[${new Date().toISOString()}] POST /api/confidence  id=${id}  confidence=${value}  expires_in=10min`);
   res.json({ ok: true, id, confidence: value });
 }
 
