@@ -260,6 +260,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // LoS warning modal state
   const [showLoSWarningModal, setShowLoSWarningModal] = useState<boolean>(false);
   const [showReviewSubmittedModal, setShowReviewSubmittedModal] = useState<boolean>(false);
+  const [reviewPostedToApi, setReviewPostedToApi] = useState<boolean>(false);
 
   // Per-satellite datasource confidence review (UI only — would feed a digital twin)
   const [confidenceValues, setConfidenceValues] = useState<Map<string, number>>(new Map());
@@ -2723,6 +2724,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ id: settingsModalSatelliteId, confidence }),
                           }).catch((err) => console.warn('Failed to submit confidence:', err));
+                          setReviewPostedToApi(true);
                         }
                         setShowReviewSubmittedModal(true);
                       }}
@@ -2880,23 +2882,42 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             </div>
             <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 18, color: '#aaa' }}>
               Your confidence rating and comment have been recorded.
-              In a connected digital twin environment, this review would be persisted and
-              made available to the operations team.
+              {reviewPostedToApi
+                ? ' The digital twin has been updated. Reload the page to see the latest data.'
+                : ' In a connected digital twin environment, this review would be persisted and made available to the operations team.'}
             </div>
-            <button
-              onClick={() => setShowReviewSubmittedModal(false)}
-              style={{
-                background: '#3b6fd4',
-                border: 'none',
-                borderRadius: 5,
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: 13,
-                padding: '7px 18px',
-              }}
-            >
-              OK
-            </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              {reviewPostedToApi && (
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    background: '#3b6fd4',
+                    border: 'none',
+                    borderRadius: 5,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    padding: '7px 18px',
+                  }}
+                >
+                  Reload page
+                </button>
+              )}
+              <button
+                onClick={() => { setShowReviewSubmittedModal(false); setReviewPostedToApi(false); }}
+                style={{
+                  background: reviewPostedToApi ? 'rgba(255,255,255,0.08)' : '#3b6fd4',
+                  border: reviewPostedToApi ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                  borderRadius: 5,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  padding: '7px 18px',
+                }}
+              >
+                {reviewPostedToApi ? 'Stay' : 'OK'}
+              </button>
+            </div>
           </div>
         </div>
       )}
