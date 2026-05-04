@@ -1194,7 +1194,9 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         if (parsedSatellites.length > 0) {
           const firstInterval = parsedSatellites[0].availability.get(0);
           if (firstInterval) {
-            setTimestamp(firstInterval.start);
+            // Start 1 s into the trajectory so the interpolator has a left-side
+            // neighbour from the very first frame — prevents camera losing track at T=0
+            setTimestamp(JulianDate.addSeconds(firstInterval.start, 1, new JulianDate()));
           }
         }
       } catch (error) {
