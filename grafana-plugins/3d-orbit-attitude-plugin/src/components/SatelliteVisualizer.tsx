@@ -1954,15 +1954,20 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 )}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {([
-                    { label: 'Jump to start',  time: jumpStart  },
-                    { label: 'Jump to middle', time: jumpMiddle },
-                    { label: 'Jump to end',    time: jumpEnd    },
-                  ] as Array<{ label: string; time: JulianDate }>).map(({ label, time }) => (
+                    { label: 'Jump to start',  time: jumpStart,  direction:  1 },
+                    { label: 'Jump to middle', time: jumpMiddle, direction:  0 },
+                    { label: 'Jump to end',    time: jumpEnd,    direction: -1 },
+                  ] as Array<{ label: string; time: JulianDate; direction: number }>).map(({ label, time, direction }) => (
                     <button
                       key={label}
                       onClick={() => {
                         const viewer = viewerRef.current?.cesiumElement;
-                        if (viewer) { viewer.clock.shouldAnimate = false; }
+                        if (viewer) {
+                          viewer.clock.shouldAnimate = false;
+                          if (direction !== 0) {
+                            viewer.clock.multiplier = direction * Math.abs(viewer.clock.multiplier);
+                          }
+                        }
                         setTimestamp(time);
                       }}
                       style={{
