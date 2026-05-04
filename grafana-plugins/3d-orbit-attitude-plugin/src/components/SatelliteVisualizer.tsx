@@ -1960,7 +1960,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   ] as Array<{ label: string; time: JulianDate }>).map(({ label, time }) => (
                     <button
                       key={label}
-                      onClick={() => setTimestamp(time)}
+                      onClick={() => {
+                        const viewer = viewerRef.current?.cesiumElement;
+                        if (viewer) { viewer.clock.shouldAnimate = false; }
+                        setTimestamp(time);
+                      }}
                       style={{
                         padding: '6px 12px',
                         background: 'rgba(255,255,255,0.08)',
