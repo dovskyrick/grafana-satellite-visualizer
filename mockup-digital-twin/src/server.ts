@@ -165,26 +165,26 @@ function generateScenario1(fromMs: number, toMs: number) {
 
   const COLLISION_SATELLITES = [
     {
-      id: 'sat-1',   name: 'SAT-1',
+      id: 'sat-1',   name: 'Satellite Gamma',
       altitude: 549.9, inclination: 53, longitudeOfAN: 0, eccentricity: 0,
       lastObservedMs: tcaMs - 2 * 3600 * 1000,           // TCA − 2h = now − 30min
       ellipsoid: { startM: 50, endM: 600, growthHours: 2 },
     },
     {
-      id: 'sat-2a',  name: 'SAT-2-A',
+      id: 'sat-2a',  name: 'Satellite Delta — Traj. 1',
       altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       lastObservedMs: tcaMs - 3 * 3600 * 1000,           // TCA − 3h
       ellipsoid: { startM: 50, endM: 700, growthHours: 3 },
     },
     {
-      id: 'sat-2b',  name: 'SAT-2-B',
+      id: 'sat-2b',  name: 'Satellite Delta — Traj. 2',
       altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       startAnomaly: 0.02,                                 // ~0.4s offset → slightly off-centre conjunction
       lastObservedMs: tcaMs - 4.5 * 3600 * 1000,         // TCA − 4h30min
       ellipsoid: { startM: 50, endM: 4000, growthHours: 4.5 },
     },
     {
-      id: 'sat-2c',  name: 'SAT-2-C',
+      id: 'sat-2c',  name: 'Satellite Delta — Traj. 3',
       altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       startAnomaly: 0.11,                                 // ~2s ahead in orbit → ~15 km along-track at TCA → no conjunction
       lastObservedMs: tcaMs - 135 * 60 * 1000,           // TCA − 2h15min
@@ -259,19 +259,19 @@ function generateScenario2(fromMs: number, toMs: number) {
 
   const COLLISION_SATELLITES = [
     {
-      id: 'sat-1',   name: 'SAT-1',
+      id: 'sat-1',   name: 'Satellite Gamma',
       altitude: 549.9, inclination: 53, longitudeOfAN: 0, eccentricity: 0,
       lastObservedMs: tcaMs - 2 * 3600 * 1000,
       ellipsoid: { startM: 50, endM: 600, growthHours: 2 },
     },
     {
-      id: 'sat-2a',  name: 'SAT-2-A',
+      id: 'sat-2a',  name: 'Satellite Delta — Traj. 1',
       altitude: 550,   inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       lastObservedMs: tcaMs - 5 * 3600 * 1000,           // very stale — 5h before TCA
       ellipsoid: { startM: 100, endM: 101, growthHours: 999 }, // frozen: negligible growth
     },
     {
-      id: 'sat-2b',  name: 'SAT-2-B',
+      id: 'sat-2b',  name: 'Satellite Delta — Traj. 2',
       altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       startAnomaly: 0.02,
       lastObservedMs: tcaMs - 4.5 * 3600 * 1000,
@@ -606,10 +606,10 @@ function generateConfidenceTable(scenario: number) {
 
   if (scenario === ScenarioId.CollisionRisk1) {
     return [
-      row('SAT-1',   9, 600,  tcaMs - 2 * 3600 * 1000,    'Helios Catalogue'),
-      row('SAT-2-A', 2, 700,  tcaMs - 3 * 3600 * 1000,    'Nadir Systems TLE'),
-      row('SAT-2-B', 7, 4000, tcaMs - 4.5 * 3600 * 1000,  'ArcLight Radar'),
-      row('SAT-2-C', 8, 400,  tcaMs - 135 * 60 * 1000,    'Sentinel-Track OD'),
+      row('Satellite Gamma',          9, 600,  tcaMs - 2 * 3600 * 1000,    'Helios Catalogue'),
+      row('Satellite Delta — Traj. 1', 2, 700,  tcaMs - 3 * 3600 * 1000,    'Nadir Systems TLE'),
+      row('Satellite Delta — Traj. 2', 7, 4000, tcaMs - 4.5 * 3600 * 1000,  'ArcLight Radar'),
+      row('Satellite Delta — Traj. 3', 8, 400,  tcaMs - 135 * 60 * 1000,    'Sentinel-Track OD'),
     ];
   }
 
@@ -622,9 +622,9 @@ function generateConfidenceTable(scenario: number) {
     const conf2a = (entry2a && now < entry2a.resetAt) ? entry2a.value : -1;
     const conf2b = (entry2b && now < entry2b.resetAt) ? entry2b.value : -1;
     return [
-      row('SAT-1',   9,       600,  tcaMs - 2 * 3600 * 1000,   'Helios Catalogue'),
-      row('SAT-2-A', conf2a,  100,  tcaMs - 5 * 3600 * 1000,   'Nadir Systems TLE'),
-      row('SAT-2-B', conf2b,  4000, tcaMs - 4.5 * 3600 * 1000, 'ArcLight Radar'),
+      row('Satellite Gamma',          9,      600,  tcaMs - 2 * 3600 * 1000,   'Helios Catalogue'),
+      row('Satellite Delta — Traj. 1', conf2a, 100,  tcaMs - 5 * 3600 * 1000,   'Nadir Systems TLE'),
+      row('Satellite Delta — Traj. 2', conf2b, 4000, tcaMs - 4.5 * 3600 * 1000, 'ArcLight Radar'),
     ];
   }
 
