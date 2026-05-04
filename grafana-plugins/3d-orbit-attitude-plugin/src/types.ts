@@ -55,8 +55,6 @@ export interface SimpleOptions {
   showSceneModePicker: boolean;
   showProjectionPicker: boolean;
   showCredits: boolean;
-  
-  showNadirViewButton: boolean;
 }
 
 export enum AssetMode {
