@@ -13,7 +13,7 @@ primary_region = 'lhr'  # London - closest to you in Portugal
   GF_SERVER_HTTP_PORT = "3000"
   GF_AUTH_ANONYMOUS_ENABLED = "true"
   GF_AUTH_ANONYMOUS_ORG_ROLE = "Viewer"
-  GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/etc/grafana/provisioning/dashboards/scenario-1-conjunction.json"
+  GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/etc/grafana/provisioning/dashboards/scenario-1.json"
   GF_INSTALL_PLUGINS = "yesoreyeram-infinity-datasource"
   DIGITAL_TWIN_URL = "http://satellite-twin.internal:3001"
 
