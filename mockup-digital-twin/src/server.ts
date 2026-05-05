@@ -272,7 +272,7 @@ function generateScenario2(fromMs: number, toMs: number) {
     },
     {
       id: 'sat-2b',  name: 'Satellite Delta — Traj. 2',
-      altitude: 550.1, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
+      altitude: 551, inclination: 20, longitudeOfAN: 0, eccentricity: 0.1,
       startAnomaly: 0.02,
       lastObservedMs: tcaMs - 4.5 * 3600 * 1000,
       ellipsoid: { startM: 50, endM: 4000, growthHours: 4.5 },
