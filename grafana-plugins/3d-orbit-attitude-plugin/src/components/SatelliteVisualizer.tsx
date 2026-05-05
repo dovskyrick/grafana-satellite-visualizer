@@ -2200,6 +2200,24 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   </div>
                 );
               })()}
+
+              {/* Sun Exclusion Zone — static legend entry, only in celestial total-map view */}
+              {selectedMode === 'celestial' && celestialCameraView === 'total-map' && (
+                <div className={styles.legendSection}>
+                  <div className={styles.legendSectionTitle}>Celestial Zones</div>
+                  <div className={styles.legendItem} style={{ cursor: 'default' }}>
+                    <svg width="16" height="16" style={{ flexShrink: 0 }}>
+                      <rect
+                        x="1" y="1" width="14" height="14" rx="2"
+                        fill="#FFD700" fillOpacity={0.14}
+                        stroke="#FFD700" strokeWidth="1.5"
+                        strokeDasharray="3 2"
+                      />
+                    </svg>
+                    <span className={styles.legendItemName}>Sun excl. zone (15°)</span>
+                  </div>
+                </div>
+              )}
             </div>
             )}
           </div>
