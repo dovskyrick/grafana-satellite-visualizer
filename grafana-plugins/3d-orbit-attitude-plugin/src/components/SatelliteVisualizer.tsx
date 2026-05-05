@@ -148,6 +148,52 @@ function clampLabel(
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Resolve label collisions for the Total Map SVG overlay.
+ *
+ * All labels are first clamped by clampLabel, then passed here as a flat array.
+ * A single O(n²) pass checks every pair's bounding boxes (n ≤ ~8 in practice).
+ * When two labels overlap, the leftmost one stays fixed and the other is nudged
+ * down by one line-height + 1.5 SVG units.  The result is a Map keyed by the
+ * caller-supplied id so each label can look up its resolved position.
+ */
+function resolveCollisions(
+  labels: Array<{ id: string; x: number; y: number; text: string; fontSize: number; anchor: 'start' | 'middle' }>
+): Map<string, { x: number; y: number }> {
+  const H = 180, PAD = 2;
+  const pos = new Map<string, { x: number; y: number }>(
+    labels.map(l => [l.id, { x: l.x, y: l.y }])
+  );
+
+  for (let i = 0; i < labels.length; i++) {
+    for (let j = i + 1; j < labels.length; j++) {
+      const a  = labels[i];
+      const b  = labels[j];
+      const rA = pos.get(a.id)!;
+      const rB = pos.get(b.id)!;
+
+      const aW    = a.fontSize * 0.55 * a.text.length;
+      const bW    = b.fontSize * 0.55 * b.text.length;
+      const aLeft = a.anchor === 'middle' ? rA.x - aW / 2 : rA.x;
+      const bLeft = b.anchor === 'middle' ? rB.x - bW / 2 : rB.x;
+
+      const overlapX = aLeft < bLeft + bW && aLeft + aW > bLeft;
+      const overlapY = rA.y - a.fontSize < rB.y && rA.y > rB.y - b.fontSize;
+
+      if (overlapX && overlapY) {
+        const nudge = Math.max(a.fontSize, b.fontSize) + 1.5;
+        if (rA.x <= rB.x) {
+          pos.set(b.id, { x: rB.x, y: Math.min(rB.y + nudge, H - PAD) });
+        } else {
+          pos.set(a.id, { x: rA.x, y: Math.min(rA.y + nudge, H - PAD) });
+        }
+      }
+    }
+  }
+
+  return pos;
+}
+
 // ─── Ground Station POV camera settings ──────────────────────────────────────
 // Tweak GS_POV_FOV_DEG to change the field of view when in Ground Station mode.
 // 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
@@ -2132,84 +2178,132 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
           </div>
 
           {/* Celestial Map — Total Map polar chart overlay */}
-          {selectedMode === 'celestial' && celestialCameraView === 'total-map' && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: '#000',
-                zIndex: 9,
-                pointerEvents: 'none',
-              }}
-            >
-              {/* viewBox="0 0 360 180": az 0–360° → x, el +90°→−90° → y 0–180.
-                  preserveAspectRatio="none" fills the full panel rectangle. */}
-              <svg
-                width="100%"
-                height="100%"
-                viewBox="0 0 360 180"
-                preserveAspectRatio="none"
+          {selectedMode === 'celestial' && celestialCameraView === 'total-map' && (() => {
+            if (!overlayClockTime) { return null; }
+            const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
+            if (!trackedSat) { return null; }
+            const satPos = trackedSat.position.getValue(overlayClockTime);
+            if (!satPos) { return null; }
+            const satOrientation = trackedSat.orientation.getValue(overlayClockTime);
+            const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
+
+            // ── Celestial bodies ────────────────────────────────────────────────
+            const sunECI  = Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(overlayClockTime, new Cartesian3());
+            const sunECEF = icrfToFixed ? Matrix3.multiplyByVector(icrfToFixed, sunECI, new Cartesian3()) : sunECI;
+            const sunAzel = computeAzEl(satPos, sunECEF);
+
+            const moonECI  = Simon1994PlanetaryPositions.computeMoonPositionInEarthInertialFrame(overlayClockTime, new Cartesian3());
+            const moonECEF = icrfToFixed ? Matrix3.multiplyByVector(icrfToFixed, moonECI, new Cartesian3()) : moonECI;
+            const moonAzel = computeAzEl(satPos, moonECEF);
+
+            // ── Earth disk ──────────────────────────────────────────────────────
+            const earthRing    = generateEarthDiskRing(satPos);
+            const earthD       = filledRingToSvgPath(earthRing);
+            const earthCenterX = earthRing.length ? earthRing.reduce((s, p) => s + p.az, 0) / earthRing.length : 0;
+            const earthCenterY = earthRing.length ? 90 - earthRing.reduce((s, p) => s + p.el, 0) / earthRing.length : 180;
+
+            // ── Sun exclusion zone ──────────────────────────────────────────────
+            const sunExRing    = generateDirectionDiskRing(satPos, sunECEF, 15);
+            const sunExD       = filledRingToSvgPath(sunExRing);
+            const sunExCenterX = sunExRing.length ? sunExRing.reduce((s, p) => s + p.az, 0) / sunExRing.length : 0;
+            const sunExCenterY = sunExRing.length ? 90 - sunExRing.reduce((s, p) => s + p.el, 0) / sunExRing.length : 90;
+
+            // ── Visible ground stations ─────────────────────────────────────────
+            const visibleGs = groundStations.flatMap(gs => {
+              const gsPos      = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
+              const azelFromGs = computeAzEl(gsPos, satPos);
+              if (!azelFromGs || azelFromGs.el < 0) { return []; }
+              const azel = computeAzEl(satPos, gsPos);
+              if (!azel) { return []; }
+              return [{ gs, x: azel.az, y: 90 - azel.el }];
+            });
+
+            // ── Sensor FOV rings ────────────────────────────────────────────────
+            const fovData = satOrientation
+              ? trackedSat.sensors.flatMap((sensor, idx) => {
+                  const color = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
+                  const ring  = generateFOVRing(satPos, satOrientation, sensor);
+                  const d     = filledRingToSvgPath(ring);
+                  if (!d || ring.length === 0) { return []; }
+                  const azVals    = ring.map(p => p.az);
+                  const maxAz     = Math.max(...azVals);
+                  const minAz     = Math.min(...azVals);
+                  const shiftedAz = maxAz - minAz > 180 ? azVals.map(a => a < 180 ? a + 360 : a) : azVals;
+                  const rawX      = (shiftedAz.reduce((s, a) => s + a, 0) / shiftedAz.length) % 360;
+                  const rawY      = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+                  return [{ sensor, color, d, rawX, rawY }];
+                })
+              : [];
+
+            // ── Collect all label descriptors and resolve collisions ─────────────
+            type LDesc = { id: string; x: number; y: number; text: string; fontSize: number; anchor: 'start' | 'middle' };
+            const labelDescs: LDesc[] = [];
+
+            if (sunAzel) {
+              const c = clampLabel(sunAzel.az + 4.5, 90 - sunAzel.el - 1, 'Sun', 4.8);
+              labelDescs.push({ id: 'sun', ...c, text: 'Sun', fontSize: 4.8, anchor: 'start' });
+            }
+            if (sunExD) {
+              const c = clampLabel(sunExCenterX, sunExCenterY, 'Sun excl.', 3.6, 'middle');
+              labelDescs.push({ id: 'sun-ex', ...c, text: 'Sun excl.', fontSize: 3.6, anchor: 'middle' });
+            }
+            if (moonAzel) {
+              const c = clampLabel(moonAzel.az + 4.5, 90 - moonAzel.el - 1, 'Moon', 4.8);
+              labelDescs.push({ id: 'moon', ...c, text: 'Moon', fontSize: 4.8, anchor: 'start' });
+            }
+            if (earthD) {
+              const c = clampLabel(earthCenterX, earthCenterY, 'Earth', 4.8, 'middle');
+              labelDescs.push({ id: 'earth', ...c, text: 'Earth', fontSize: 4.8, anchor: 'middle' });
+            }
+            visibleGs.forEach(({ gs, x, y }) => {
+              const c = clampLabel(x + 3.5, y + 1.5, gs.name, 4.8);
+              labelDescs.push({ id: gs.id, ...c, text: gs.name, fontSize: 4.8, anchor: 'start' });
+            });
+            fovData.forEach(({ sensor, rawX, rawY }) => {
+              const c = clampLabel(rawX, rawY, sensor.name, 4.8, 'middle');
+              labelDescs.push({ id: `fov-${sensor.id}`, ...c, text: sensor.name, fontSize: 4.8, anchor: 'middle' });
+            });
+
+            const resolved = resolveCollisions(labelDescs);
+            const lbl = (id: string) => resolved.get(id) ?? { x: 0, y: 0 };
+
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: '#000',
+                  zIndex: 9,
+                  pointerEvents: 'none',
+                }}
               >
-                {/* Sun — equirectangular projection across the full panel */}
-                {(() => {
-                  if (!overlayClockTime) { return null; }
-                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
-                  if (!trackedSat) { return null; }
-                  const satPos = trackedSat.position.getValue(overlayClockTime);
-                  if (!satPos) { return null; }
+                {/* viewBox="0 0 360 180": az 0–360° → x, el +90°→−90° → y 0–180.
+                    preserveAspectRatio="none" fills the full panel rectangle. */}
+                <svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 360 180"
+                  preserveAspectRatio="none"
+                >
+                  {/* Sun */}
+                  {sunAzel && (() => {
+                    const x   = sunAzel.az;
+                    const y   = 90 - sunAzel.el;
+                    const pos = lbl('sun');
+                    return (
+                      <g key="sun">
+                        <circle cx={x} cy={y} r="2.2" fill="#FFD700" />
+                        <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
+                        <text x={pos.x} y={pos.y} fontSize="4.8" fill="#FFD700" opacity="0.9">Sun</text>
+                      </g>
+                    );
+                  })()}
 
-                  const sunECI = Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(
-                    overlayClockTime, new Cartesian3()
-                  );
-                  const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
-                  const sunECEF = icrfToFixed
-                    ? Matrix3.multiplyByVector(icrfToFixed, sunECI, new Cartesian3())
-                    : sunECI;
-
-                  const azel = computeAzEl(satPos, sunECEF);
-                  if (!azel) { return null; }
-
-                  // Equirectangular: az 0–360° → x 0–360, el +90–(−90)° → y 0–180
-                  const x = azel.az;
-                  const y = 90 - azel.el;
-
-                  const sunLabel = clampLabel(x + 4.5, y - 1, 'Sun', 4.8);
-                  return (
-                    <g key="sun">
-                      <circle cx={x} cy={y} r="2.2" fill="#FFD700" />
-                      <circle cx={x} cy={y} r="3.8" fill="none" stroke="#FFD700" strokeWidth="0.4" opacity="0.5" />
-                      <text x={sunLabel.x} y={sunLabel.y} fontSize="4.8" fill="#FFD700" opacity="0.9">Sun</text>
-                    </g>
-                  );
-                })()}
-
-                {/* Sun exclusion zone — 15° keep-out cone around the Sun */}
-                {(() => {
-                  if (!overlayClockTime) { return null; }
-                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
-                  if (!trackedSat) { return null; }
-                  const satPos = trackedSat.position.getValue(overlayClockTime);
-                  if (!satPos) { return null; }
-
-                  const sunECI = Simon1994PlanetaryPositions.computeSunPositionInEarthInertialFrame(
-                    overlayClockTime, new Cartesian3()
-                  );
-                  const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
-                  const sunECEF = icrfToFixed
-                    ? Matrix3.multiplyByVector(icrfToFixed, sunECI, new Cartesian3())
-                    : sunECI;
-
-                  const ring = generateDirectionDiskRing(satPos, sunECEF, 15);
-                  const d = filledRingToSvgPath(ring);
-                  if (!d) { return null; }
-
-                  const centerX = ring.reduce((s, p) => s + p.az, 0) / ring.length;
-                  const centerY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
-                  const exLabel = clampLabel(centerX, centerY, 'Sun excl.', 3.6, 'middle');
-                  return (
+                  {/* Sun exclusion zone — 15° keep-out cone around the Sun */}
+                  {sunExD && (
                     <g key="sun-exclusion">
                       <path
-                        d={d}
+                        d={sunExD}
                         fill="#FFD700"
                         fillOpacity={0.08}
                         stroke="#FFD700"
@@ -2217,138 +2311,64 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                         strokeOpacity={0.5}
                         strokeDasharray="2 1.5"
                       />
-                      <text x={exLabel.x} y={exLabel.y} fontSize="3.6" fill="#FFD700" opacity="0.6" textAnchor="middle">Sun excl.</text>
+                      <text x={lbl('sun-ex').x} y={lbl('sun-ex').y} fontSize="3.6" fill="#FFD700" opacity="0.6" textAnchor="middle">Sun excl.</text>
                     </g>
-                  );
-                })()}
+                  )}
 
-                {/* Moon — equirectangular projection across the full panel */}
-                {(() => {
-                  if (!overlayClockTime) { return null; }
-                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
-                  if (!trackedSat) { return null; }
-                  const satPos = trackedSat.position.getValue(overlayClockTime);
-                  if (!satPos) { return null; }
+                  {/* Moon */}
+                  {moonAzel && (() => {
+                    const x   = moonAzel.az;
+                    const y   = 90 - moonAzel.el;
+                    const pos = lbl('moon');
+                    return (
+                      <g key="moon">
+                        <circle cx={x} cy={y} r="2.2" fill="#C0C0C0" />
+                        <circle cx={x} cy={y} r="3.8" fill="none" stroke="#C0C0C0" strokeWidth="0.4" opacity="0.5" />
+                        <text x={pos.x} y={pos.y} fontSize="4.8" fill="#C0C0C0" opacity="0.9">Moon</text>
+                      </g>
+                    );
+                  })()}
 
-                  const moonECI = Simon1994PlanetaryPositions.computeMoonPositionInEarthInertialFrame(
-                    overlayClockTime, new Cartesian3()
-                  );
-                  const icrfToFixed = Transforms.computeIcrfToFixedMatrix(overlayClockTime);
-                  const moonECEF = icrfToFixed
-                    ? Matrix3.multiplyByVector(icrfToFixed, moonECI, new Cartesian3())
-                    : moonECI;
+                  {/* Earth disk — visible hemisphere boundary from satellite */}
+                  {earthD && (() => {
+                    const pos = lbl('earth');
+                    return (
+                      <g key="earth-disk">
+                        <path
+                          d={earthD}
+                          fill="#4488FF"
+                          fillOpacity={0.12}
+                          stroke="#4488FF"
+                          strokeWidth="0.6"
+                          strokeOpacity={0.5}
+                        />
+                        <text
+                          x={pos.x}
+                          y={pos.y}
+                          fontSize="4.8"
+                          fill="#4488FF"
+                          opacity="0.7"
+                          textAnchor="middle"
+                        >Earth</text>
+                      </g>
+                    );
+                  })()}
 
-                  const azel = computeAzEl(satPos, moonECEF);
-                  if (!azel) { return null; }
-
-                  const x = azel.az;
-                  const y = 90 - azel.el;
-                  const moonLabel = clampLabel(x + 4.5, y - 1, 'Moon', 4.8);
-                  return (
-                    <g key="moon">
-                      <circle cx={x} cy={y} r="2.2" fill="#C0C0C0" />
-                      <circle cx={x} cy={y} r="3.8" fill="none" stroke="#C0C0C0" strokeWidth="0.4" opacity="0.5" />
-                      <text x={moonLabel.x} y={moonLabel.y} fontSize="4.8" fill="#C0C0C0" opacity="0.9">Moon</text>
-                    </g>
-                  );
-                })()}
-
-                {/* Earth disk — visible hemisphere boundary from satellite */}
-                {(() => {
-                  if (!overlayClockTime) { return null; }
-                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
-                  if (!trackedSat) { return null; }
-                  const satPos = trackedSat.position.getValue(overlayClockTime);
-                  if (!satPos) { return null; }
-                  const ring = generateEarthDiskRing(satPos);
-                  const d = filledRingToSvgPath(ring);
-                  if (!d) { return null; }
-                  // Average the ring points for a centroid label position.
-                  // Earth disk is always near nadir (y ≈ 180), use ring centroid for x.
-                  const centerX = ring.reduce((s, p) => s + p.az, 0) / ring.length;
-                  const centerY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
-                  const earthLabel = clampLabel(centerX, centerY, 'Earth', 4.8, 'middle');
-                  return (
-                    <g key="earth-disk">
-                      <path
-                        d={d}
-                        fill="#4488FF"
-                        fillOpacity={0.12}
-                        stroke="#4488FF"
-                        strokeWidth="0.6"
-                        strokeOpacity={0.5}
-                      />
-                      <text
-                        x={earthLabel.x}
-                        y={earthLabel.y}
-                        fontSize="4.8"
-                        fill="#4488FF"
-                        opacity="0.7"
-                        textAnchor="middle"
-                      >Earth</text>
-                    </g>
-                  );
-                })()}
-
-                {/* Ground stations in line-of-sight of the tracked satellite */}
-                {(() => {
-                  if (!overlayClockTime || groundStations.length === 0) { return null; }
-                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
-                  if (!trackedSat) { return null; }
-                  const satPos = trackedSat.position.getValue(overlayClockTime);
-                  if (!satPos) { return null; }
-
-                  return groundStations.map(gs => {
-                    const gsPos = Cartesian3.fromDegrees(gs.longitude, gs.latitude, gs.altitude);
-
-                    // Visibility: satellite must be above the ground station's horizon
-                    const azelFromGs = computeAzEl(gsPos, satPos);
-                    if (!azelFromGs || azelFromGs.el < 0) { return null; }
-
-                    // Map position: az/el of the ground station from the satellite's ENU frame
-                    const azel = computeAzEl(satPos, gsPos);
-                    if (!azel) { return null; }
-
-                    const x = azel.az;
-                    const y = 90 - azel.el; // el is negative so y > 90, inside the Earth disk
-                    const gsLabel = clampLabel(x + 3.5, y + 1.5, gs.name, 4.8);
+                  {/* Ground stations in line-of-sight of the tracked satellite */}
+                  {visibleGs.map(({ gs, x, y }) => {
+                    const pos = lbl(gs.id);
                     return (
                       <g key={gs.id}>
                         <circle cx={x} cy={y} r="1.8" fill="#FF8800" opacity="0.9" />
                         <circle cx={x} cy={y} r="3.2" fill="none" stroke="#FF8800" strokeWidth="0.35" opacity="0.5" />
-                        <text x={gsLabel.x} y={gsLabel.y} fontSize="4.8" fill="#FF8800" opacity="0.85">{gs.name}</text>
+                        <text x={pos.x} y={pos.y} fontSize="4.8" fill="#FF8800" opacity="0.85">{gs.name}</text>
                       </g>
                     );
-                  });
-                })()}
+                  })}
 
-                {/* Sensor FOV rings — Step 3: filled + seam-cut + pole corners */}
-                {(() => {
-                  if (!overlayClockTime) { return null; }
-                  const trackedSat = satellites.find(s => s.id === trackedSatelliteId) ?? satellites[0];
-                  if (!trackedSat || trackedSat.sensors.length === 0) { return null; }
-
-                  const satPos = trackedSat.position.getValue(overlayClockTime);
-                  const satOrientation = trackedSat.orientation.getValue(overlayClockTime);
-                  if (!satPos || !satOrientation) { return null; }
-
-                  return trackedSat.sensors.map((sensor, idx) => {
-                    const color = _getSensorColor(trackedSat.id, sensor.id, sensor, idx);
-                    const ring = generateFOVRing(satPos, satOrientation, sensor);
-                    const d = filledRingToSvgPath(ring);
-                    if (!d) { return null; }
-
-                    // Seam-aware centroid: shift az values crossing the 0/360 seam before averaging.
-                    const azVals = ring.map(p => p.az);
-                    const maxAz = Math.max(...azVals);
-                    const minAz = Math.min(...azVals);
-                    const shiftedAz = maxAz - minAz > 180
-                      ? azVals.map(a => a < 180 ? a + 360 : a)
-                      : azVals;
-                    const rawLabelX = (shiftedAz.reduce((s, a) => s + a, 0) / shiftedAz.length) % 360;
-                    const rawLabelY = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
-                    const fovLabel = clampLabel(rawLabelX, rawLabelY, sensor.name, 4.8, 'middle');
-
+                  {/* Sensor FOV rings — Step 3: filled + seam-cut + pole corners */}
+                  {fovData.map(({ sensor, color, d }) => {
+                    const pos = lbl(`fov-${sensor.id}`);
                     return (
                       <g key={sensor.id}>
                         <path
@@ -2359,8 +2379,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                           strokeWidth="0.8"
                         />
                         <text
-                          x={fovLabel.x}
-                          y={fovLabel.y}
+                          x={pos.x}
+                          y={pos.y}
                           fontSize="4.8"
                           fill={color}
                           opacity="0.9"
@@ -2368,11 +2388,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                         >{sensor.name}</text>
                       </g>
                     );
-                  });
-                })()}
-              </svg>
-            </div>
-          )}
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
 
           {/* Ground Station POV — polar sky chart overlay (Cesium keeps rendering underneath) */}
           {selectedMode === 'groundstation' && (
