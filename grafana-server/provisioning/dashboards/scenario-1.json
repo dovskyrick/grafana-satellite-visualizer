@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 2,
-  "id": 9,
+  "id": 20,
   "links": [],
   "panels": [
     {
@@ -95,7 +95,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Confidence"
+              "options": "Source Reliability"
             },
             "properties": [
               {
@@ -142,7 +142,7 @@
           }
         }
       ],
-      "title": "Confidence Scores",
+      "title": "Source Reliability Scores",
       "transformations": [
         {
           "id": "organize",
@@ -150,9 +150,9 @@
             "excludeByName": {},
             "includeByName": {},
             "indexByName": {
-              "Confidence": 1,
               "Ellipsoid at TCA": 2,
               "Source": 4,
+              "Source Reliability": 1,
               "Time Since Last Obs": 3,
               "Trajectory ID": 0
             },
@@ -416,5 +416,5 @@
   "timezone": "utc",
   "title": "Scenario 1 : Collision Risk Analysis",
   "uid": "ad8wkv1",
-  "version": 5
+  "version": 2
 }

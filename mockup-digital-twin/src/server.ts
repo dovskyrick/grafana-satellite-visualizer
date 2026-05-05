@@ -598,7 +598,7 @@ function generateConfidenceTable(scenario: number) {
 
   const row = (id: string, confidence: number, ellM: number | null, lastObsMs: number, source: string) => ({
     'Trajectory ID':       id,
-    'Confidence':          confidence,
+    'Source Reliability':  confidence,
     'Ellipsoid at TCA':    ellM !== null ? fmtEll(ellM) : '—',
     'Time Since Last Obs': timeSince(lastObsMs),
     'Source':              source,

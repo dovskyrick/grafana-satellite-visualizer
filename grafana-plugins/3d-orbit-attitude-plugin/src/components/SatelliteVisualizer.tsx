@@ -2657,17 +2657,17 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
                 </div> {/* End Render Settings Group */}
 
-                {/* Datasource Confidence Review Section */}
+                {/* Source Reliability Assessment Section */}
                 <div className={styles.settingsGroup}>
-                  <h4 className={styles.settingsGroupTitle}>Datasource Confidence Review</h4>
+                  <h4 className={styles.settingsGroupTitle}>Source Reliability Assessment</h4>
                   <div className={styles.settingDescription} style={{ marginLeft: 0, marginBottom: 12 }}>
-                    Rate your confidence in this datasource and optionally leave a comment for the operations team.
+                    Rate the source reliability of this datasource and optionally leave a comment for the operations team.
                   </div>
 
-                  {/* Confidence Slider */}
+                  {/* Source Reliability Slider */}
                   <div className={styles.confidenceSliderRow}>
                     <div className={styles.confidenceSliderLabels}>
-                      <span className={styles.settingLabel} style={{ cursor: 'default' }}>Confidence Level</span>
+                      <span className={styles.settingLabel} style={{ cursor: 'default' }}>Source Reliability</span>
                       <span className={styles.confidenceValueBadge}>
                         {(confidenceValues.get(settingsModalSatelliteId!) ?? 5).toFixed(2)} / 10
                       </span>
@@ -2849,7 +2849,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
         </div>
       )}
 
-      {/* Datasource Confidence Review — Submitted Confirmation Modal */}
+      {/* Source Reliability Assessment — Submitted Confirmation Modal */}
       {showReviewSubmittedModal && (
         <div
           style={{
@@ -2881,7 +2881,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               Review Submitted
             </div>
             <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 18, color: '#aaa' }}>
-              Your confidence rating and comment have been recorded.
+              Your source reliability rating and comment have been recorded.
               {reviewPostedToApi
                 ? ' The digital twin has been updated. Reload the page to see the latest data.'
                 : ' In a connected digital twin environment, this review would be persisted and made available to the operations team.'}

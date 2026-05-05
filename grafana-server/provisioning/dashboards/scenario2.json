@@ -95,7 +95,7 @@
             {
               "matcher": {
                 "id": "byName",
-                "options": "Confidence"
+                "options": "Source Reliability"
               },
               "properties": [
                 {
@@ -189,7 +189,7 @@
             }
           }
         ],
-        "title": "Confidence Scores",
+        "title": "Source Reliability Scores",
         "transformations": [
           {
             "id": "organize",
@@ -197,7 +197,7 @@
               "excludeByName": {},
               "includeByName": {},
               "indexByName": {
-                "Confidence": 1,
+                "Source Reliability": 1,
                 "Ellipsoid at TCA": 2,
                 "Source": 4,
                 "Time Since Last Obs": 3,
@@ -461,7 +461,7 @@
     },
     "timepicker": {},
     "timezone": "utc",
-    "title": "Scenario 2 : Data Confidence Assessment",
+    "title": "Scenario 2 : Data Source Reliability Assessment",
     "uid": "ad859wf",
     "version": 5
   }
