@@ -2273,7 +2273,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                   const minAz     = Math.min(...azVals);
                   const shiftedAz = maxAz - minAz > 180 ? azVals.map(a => a < 180 ? a + 360 : a) : azVals;
                   const rawX      = (shiftedAz.reduce((s, a) => s + a, 0) / shiftedAz.length) % 360;
-                  const rawY      = 90 - ring.reduce((s, p) => s + p.el, 0) / ring.length;
+                  const bottomEl  = Math.min(...ring.map(p => p.el)); // lowest elevation → highest SVG y
+                  const rawY      = (90 - bottomEl) + 5;              // below the ring's bottom edge
                   return [{ sensor, color, d, rawX, rawY }];
                 })
               : [];
