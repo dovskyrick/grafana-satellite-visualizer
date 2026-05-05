@@ -148,79 +148,6 @@ function clampLabel(
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Resolve label collisions for the Total Map SVG overlay.
- *
- * All labels are first clamped by clampLabel, then passed here as a flat array.
- * A single O(n²) pass checks every pair's bounding boxes (n ≤ ~8 in practice).
- * When two labels overlap, the leftmost one stays fixed and the other is nudged
- * down by one line-height + 1.5 SVG units.  The result is a Map keyed by the
- * caller-supplied id so each label can look up its resolved position.
- */
-function resolveCollisions(
-  labels: Array<{
-    id: string; x: number; y: number;
-    text: string; fontSize: number; anchor: 'start' | 'middle';
-    marker?: { cx: number; cy: number; r: number };
-  }>
-): Map<string, { x: number; y: number }> {
-  const H = 180, PAD = 2;
-  const pos = new Map<string, { x: number; y: number }>(
-    labels.map(l => [l.id, { x: l.x, y: l.y }])
-  );
-
-  // Pass 1 — push each label away from its own point marker.
-  // Uses an AABB-vs-circle test; nudges the label down until its top edge
-  // clears the bottom of the marker circle with a 2 SVG-unit gap.
-  for (const l of labels) {
-    if (!l.marker) { continue; }
-    const p    = pos.get(l.id)!;
-    const lW   = l.fontSize * 0.55 * l.text.length;
-    const left = l.anchor === 'middle' ? p.x - lW / 2 : p.x;
-    const top  = p.y - l.fontSize;
-
-    const closestX = Math.max(left, Math.min(l.marker.cx, left + lW));
-    const closestY = Math.max(top,  Math.min(l.marker.cy, top + l.fontSize));
-    const dist     = Math.hypot(closestX - l.marker.cx, closestY - l.marker.cy);
-
-    if (dist < l.marker.r) {
-      const needed = (l.marker.cy + l.marker.r + 2) - top;
-      if (needed > 0) {
-        pos.set(l.id, { x: p.x, y: Math.min(p.y + needed, H - PAD) });
-      }
-    }
-  }
-
-  // Pass 2 — pairwise label-to-label collision nudge.
-  for (let i = 0; i < labels.length; i++) {
-    for (let j = i + 1; j < labels.length; j++) {
-      const a  = labels[i];
-      const b  = labels[j];
-      const rA = pos.get(a.id)!;
-      const rB = pos.get(b.id)!;
-
-      const aW    = a.fontSize * 0.55 * a.text.length;
-      const bW    = b.fontSize * 0.55 * b.text.length;
-      const aLeft = a.anchor === 'middle' ? rA.x - aW / 2 : rA.x;
-      const bLeft = b.anchor === 'middle' ? rB.x - bW / 2 : rB.x;
-
-      const overlapX = aLeft < bLeft + bW && aLeft + aW > bLeft;
-      const overlapY = rA.y - a.fontSize < rB.y && rA.y > rB.y - b.fontSize;
-
-      if (overlapX && overlapY) {
-        const nudge = Math.max(a.fontSize, b.fontSize) + 1.5;
-        if (rA.x <= rB.x) {
-          pos.set(b.id, { x: rB.x, y: Math.min(rB.y + nudge, H - PAD) });
-        } else {
-          pos.set(a.id, { x: rA.x, y: Math.min(rA.y + nudge, H - PAD) });
-        }
-      }
-    }
-  }
-
-  return pos;
-}
-
 // ─── Ground Station POV camera settings ──────────────────────────────────────
 // Tweak GS_POV_FOV_DEG to change the field of view when in Ground Station mode.
 // 180 = full hemisphere view; 90 = normal wide-angle; 60 = Cesium default.
@@ -2214,7 +2141,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                         strokeDasharray="3 2"
                       />
                     </svg>
-                    <span className={styles.legendItemName}>Sun excl. zone (15°)</span>
+                    <span className={styles.legendItemName}>Sun exclusion zone (15°)</span>
                   </div>
                 </div>
               )}
@@ -2279,39 +2206,28 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                 })
               : [];
 
-            // ── Collect all label descriptors and resolve collisions ─────────────
-            type LDesc = {
-              id: string; x: number; y: number;
-              text: string; fontSize: number; anchor: 'start' | 'middle';
-              marker?: { cx: number; cy: number; r: number };
-            };
-            const labelDescs: LDesc[] = [];
+            // ── Clamp label positions to SVG viewBox edges ──────────────────────
+            const lblMap = new Map<string, { x: number; y: number }>();
 
             if (sunAzel) {
               const cx = sunAzel.az, cy = 90 - sunAzel.el;
-              const c = clampLabel(cx + 5, cy - 6, 'Sun', 4.8);
-              labelDescs.push({ id: 'sun', ...c, text: 'Sun', fontSize: 4.8, anchor: 'start', marker: { cx, cy, r: 3.8 } });
+              lblMap.set('sun', clampLabel(cx + 5, cy - 6, 'Sun', 4.8));
             }
             if (moonAzel) {
               const cx = moonAzel.az, cy = 90 - moonAzel.el;
-              const c = clampLabel(cx + 5, cy - 6, 'Moon', 4.8);
-              labelDescs.push({ id: 'moon', ...c, text: 'Moon', fontSize: 4.8, anchor: 'start', marker: { cx, cy, r: 3.8 } });
+              lblMap.set('moon', clampLabel(cx + 5, cy - 6, 'Moon', 4.8));
             }
             if (earthD) {
-              const c = clampLabel(earthCenterX, earthCenterY, 'Earth', 4.8, 'middle');
-              labelDescs.push({ id: 'earth', ...c, text: 'Earth', fontSize: 4.8, anchor: 'middle' });
+              lblMap.set('earth', clampLabel(earthCenterX, earthCenterY, 'Earth', 4.8, 'middle'));
             }
             visibleGs.forEach(({ gs, x, y }) => {
-              const c = clampLabel(x + 3.5, y + 1.5, gs.name, 4.8);
-              labelDescs.push({ id: gs.id, ...c, text: gs.name, fontSize: 4.8, anchor: 'start', marker: { cx: x, cy: y, r: 3.2 } });
+              lblMap.set(gs.id, clampLabel(x + 3.5, y + 1.5, gs.name, 4.8));
             });
             fovData.forEach(({ sensor, rawX, rawY }) => {
-              const c = clampLabel(rawX, rawY, sensor.name, 4.8, 'middle');
-              labelDescs.push({ id: `fov-${sensor.id}`, ...c, text: sensor.name, fontSize: 4.8, anchor: 'middle' });
+              lblMap.set(`fov-${sensor.id}`, clampLabel(rawX, rawY, sensor.name, 4.8, 'middle'));
             });
 
-            const resolved = resolveCollisions(labelDescs);
-            const lbl = (id: string) => resolved.get(id) ?? { x: 0, y: 0 };
+            const lbl = (id: string) => lblMap.get(id) ?? { x: 0, y: 0 };
 
             return (
               <div
@@ -2411,27 +2327,29 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                     );
                   })}
 
-                  {/* Sensor FOV rings — Step 3: filled + seam-cut + pole corners */}
-                  {fovData.map(({ sensor, color, d }) => {
+                  {/* Sensor FOV rings — fills and strokes first, labels on top */}
+                  {fovData.map(({ sensor, color, d }) => (
+                    <path
+                      key={`fov-path-${sensor.id}`}
+                      d={d}
+                      fill={color}
+                      fillOpacity={0.18}
+                      stroke={color}
+                      strokeWidth="0.8"
+                    />
+                  ))}
+                  {fovData.map(({ sensor, color }) => {
                     const pos = lbl(`fov-${sensor.id}`);
                     return (
-                      <g key={sensor.id}>
-                        <path
-                          d={d}
-                          fill={color}
-                          fillOpacity={0.18}
-                          stroke={color}
-                          strokeWidth="0.8"
-                        />
-                        <text
-                          x={pos.x}
-                          y={pos.y}
-                          fontSize="4.8"
-                          fill={color}
-                          opacity="0.9"
-                          textAnchor="middle"
-                        >{sensor.name}</text>
-                      </g>
+                      <text
+                        key={`fov-label-${sensor.id}`}
+                        x={pos.x}
+                        y={pos.y}
+                        fontSize="4.8"
+                        fill={color}
+                        opacity="0.9"
+                        textAnchor="middle"
+                      >{sensor.name}</text>
                     );
                   })}
                 </svg>
