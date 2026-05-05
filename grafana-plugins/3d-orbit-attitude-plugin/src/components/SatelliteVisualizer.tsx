@@ -158,13 +158,40 @@ function clampLabel(
  * caller-supplied id so each label can look up its resolved position.
  */
 function resolveCollisions(
-  labels: Array<{ id: string; x: number; y: number; text: string; fontSize: number; anchor: 'start' | 'middle' }>
+  labels: Array<{
+    id: string; x: number; y: number;
+    text: string; fontSize: number; anchor: 'start' | 'middle';
+    marker?: { cx: number; cy: number; r: number };
+  }>
 ): Map<string, { x: number; y: number }> {
   const H = 180, PAD = 2;
   const pos = new Map<string, { x: number; y: number }>(
     labels.map(l => [l.id, { x: l.x, y: l.y }])
   );
 
+  // Pass 1 — push each label away from its own point marker.
+  // Uses an AABB-vs-circle test; nudges the label down until its top edge
+  // clears the bottom of the marker circle with a 2 SVG-unit gap.
+  for (const l of labels) {
+    if (!l.marker) { continue; }
+    const p    = pos.get(l.id)!;
+    const lW   = l.fontSize * 0.55 * l.text.length;
+    const left = l.anchor === 'middle' ? p.x - lW / 2 : p.x;
+    const top  = p.y - l.fontSize;
+
+    const closestX = Math.max(left, Math.min(l.marker.cx, left + lW));
+    const closestY = Math.max(top,  Math.min(l.marker.cy, top + l.fontSize));
+    const dist     = Math.hypot(closestX - l.marker.cx, closestY - l.marker.cy);
+
+    if (dist < l.marker.r) {
+      const needed = (l.marker.cy + l.marker.r + 2) - top;
+      if (needed > 0) {
+        pos.set(l.id, { x: p.x, y: Math.min(p.y + needed, H - PAD) });
+      }
+    }
+  }
+
+  // Pass 2 — pairwise label-to-label collision nudge.
   for (let i = 0; i < labels.length; i++) {
     for (let j = i + 1; j < labels.length; j++) {
       const a  = labels[i];
@@ -2236,20 +2263,26 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
               : [];
 
             // ── Collect all label descriptors and resolve collisions ─────────────
-            type LDesc = { id: string; x: number; y: number; text: string; fontSize: number; anchor: 'start' | 'middle' };
+            type LDesc = {
+              id: string; x: number; y: number;
+              text: string; fontSize: number; anchor: 'start' | 'middle';
+              marker?: { cx: number; cy: number; r: number };
+            };
             const labelDescs: LDesc[] = [];
 
             if (sunAzel) {
-              const c = clampLabel(sunAzel.az + 4.5, 90 - sunAzel.el - 1, 'Sun', 4.8);
-              labelDescs.push({ id: 'sun', ...c, text: 'Sun', fontSize: 4.8, anchor: 'start' });
+              const cx = sunAzel.az, cy = 90 - sunAzel.el;
+              const c = clampLabel(cx + 4.5, cy - 1, 'Sun', 4.8);
+              labelDescs.push({ id: 'sun', ...c, text: 'Sun', fontSize: 4.8, anchor: 'start', marker: { cx, cy, r: 3.8 } });
             }
             if (sunExD) {
               const c = clampLabel(sunExCenterX, sunExCenterY, 'Sun excl.', 3.6, 'middle');
               labelDescs.push({ id: 'sun-ex', ...c, text: 'Sun excl.', fontSize: 3.6, anchor: 'middle' });
             }
             if (moonAzel) {
-              const c = clampLabel(moonAzel.az + 4.5, 90 - moonAzel.el - 1, 'Moon', 4.8);
-              labelDescs.push({ id: 'moon', ...c, text: 'Moon', fontSize: 4.8, anchor: 'start' });
+              const cx = moonAzel.az, cy = 90 - moonAzel.el;
+              const c = clampLabel(cx + 4.5, cy - 1, 'Moon', 4.8);
+              labelDescs.push({ id: 'moon', ...c, text: 'Moon', fontSize: 4.8, anchor: 'start', marker: { cx, cy, r: 3.8 } });
             }
             if (earthD) {
               const c = clampLabel(earthCenterX, earthCenterY, 'Earth', 4.8, 'middle');
@@ -2257,7 +2290,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             }
             visibleGs.forEach(({ gs, x, y }) => {
               const c = clampLabel(x + 3.5, y + 1.5, gs.name, 4.8);
-              labelDescs.push({ id: gs.id, ...c, text: gs.name, fontSize: 4.8, anchor: 'start' });
+              labelDescs.push({ id: gs.id, ...c, text: gs.name, fontSize: 4.8, anchor: 'start', marker: { cx: x, cy: y, r: 3.2 } });
             });
             fovData.forEach(({ sensor, rawX, rawY }) => {
               const c = clampLabel(rawX, rawY, sensor.name, 4.8, 'middle');
