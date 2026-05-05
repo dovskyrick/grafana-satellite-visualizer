@@ -2211,11 +2211,11 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
             if (sunAzel) {
               const cx = sunAzel.az, cy = 90 - sunAzel.el;
-              lblMap.set('sun', clampLabel(cx + 5, cy - 6, 'Sun', 4.8));
+              lblMap.set('sun', clampLabel(cx + 3, cy, 'Sun', 4.8));
             }
             if (moonAzel) {
               const cx = moonAzel.az, cy = 90 - moonAzel.el;
-              lblMap.set('moon', clampLabel(cx + 5, cy - 6, 'Moon', 4.8));
+              lblMap.set('moon', clampLabel(cx + 3, cy, 'Moon', 4.8));
             }
             if (earthD) {
               lblMap.set('earth', clampLabel(earthCenterX, earthCenterY, 'Earth', 4.8, 'middle'));
