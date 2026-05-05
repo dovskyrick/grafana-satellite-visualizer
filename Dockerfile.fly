@@ -1,4 +1,4 @@
-FROM grafana/grafana:10.0.3
+FROM grafana/grafana:11.6.0
 
 # Set environment variables
 ENV GF_SECURITY_ADMIN_USER=admin \
