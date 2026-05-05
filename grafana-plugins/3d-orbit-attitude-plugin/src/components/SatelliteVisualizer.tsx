@@ -2248,10 +2248,8 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             const earthCenterY = earthRing.length ? 90 - earthRing.reduce((s, p) => s + p.el, 0) / earthRing.length : 180;
 
             // ── Sun exclusion zone ──────────────────────────────────────────────
-            const sunExRing    = generateDirectionDiskRing(satPos, sunECEF, 15);
-            const sunExD       = filledRingToSvgPath(sunExRing);
-            const sunExCenterX = sunExRing.length ? sunExRing.reduce((s, p) => s + p.az, 0) / sunExRing.length : 0;
-            const sunExCenterY = sunExRing.length ? 90 - sunExRing.reduce((s, p) => s + p.el, 0) / sunExRing.length : 90;
+            const sunExRing = generateDirectionDiskRing(satPos, sunECEF, 15);
+            const sunExD    = filledRingToSvgPath(sunExRing);
 
             // ── Visible ground stations ─────────────────────────────────────────
             const visibleGs = groundStations.flatMap(gs => {
@@ -2290,16 +2288,12 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
 
             if (sunAzel) {
               const cx = sunAzel.az, cy = 90 - sunAzel.el;
-              const c = clampLabel(cx + 4.5, cy - 1, 'Sun', 4.8);
+              const c = clampLabel(cx + 5, cy - 6, 'Sun', 4.8);
               labelDescs.push({ id: 'sun', ...c, text: 'Sun', fontSize: 4.8, anchor: 'start', marker: { cx, cy, r: 3.8 } });
-            }
-            if (sunExD) {
-              const c = clampLabel(sunExCenterX, sunExCenterY, 'Sun excl.', 3.6, 'middle');
-              labelDescs.push({ id: 'sun-ex', ...c, text: 'Sun excl.', fontSize: 3.6, anchor: 'middle' });
             }
             if (moonAzel) {
               const cx = moonAzel.az, cy = 90 - moonAzel.el;
-              const c = clampLabel(cx + 4.5, cy - 1, 'Moon', 4.8);
+              const c = clampLabel(cx + 5, cy - 6, 'Moon', 4.8);
               labelDescs.push({ id: 'moon', ...c, text: 'Moon', fontSize: 4.8, anchor: 'start', marker: { cx, cy, r: 3.8 } });
             }
             if (earthD) {
@@ -2362,7 +2356,6 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
                         strokeOpacity={0.5}
                         strokeDasharray="2 1.5"
                       />
-                      <text x={lbl('sun-ex').x} y={lbl('sun-ex').y} fontSize="3.6" fill="#FFD700" opacity="0.6" textAnchor="middle">Sun excl.</text>
                     </g>
                   )}
 
