@@ -1,189 +1,161 @@
-# Grafana Development Server
+# Grafana Server
 
-This directory contains the Docker configuration for running a self-hosted Grafana server for plugin development.
+Pre-configured Docker Compose setup that runs the full local environment: a Grafana instance with the 3D orbit & attitude plugin pre-loaded, and the mockup digital twin server that drives all scenario dashboards.
+
+---
+
+## What Starts When You Run This
+
+```bash
+docker compose up -d
+```
+
+Two containers start together:
+
+| Container | Port | Description |
+|-----------|------|-------------|
+| `grafana-dev` | `3000` | Grafana with the plugin and all dashboards pre-loaded |
+| `mockup-twin` | `3001` | Mockup digital twin server (see `../mockup-digital-twin/README.md`) |
+
+Inside the Docker network, Grafana reaches the twin at `http://mockup-twin:3001`. On your host machine, both ports are forwarded so you can also hit the twin directly at `http://localhost:3001` for debugging.
+
+---
 
 ## Quick Start
 
-### 1. Start Grafana Server
+### Prerequisites
 
-```powershell
-cd C:\Dev\r3f-test\grafana-server
-docker-compose up -d
+- [Docker](https://docs.docker.com/get-docker/) with Compose (v2, i.e. `docker compose` not `docker-compose`)
+- The plugin must already be built — the `dist/` folder at `grafana-plugins/3d-orbit-attitude-plugin/dist/` must exist. It is committed to the repository, so a fresh clone already has it.
+
+### Start
+
+```bash
+cd grafana-server
+docker compose up -d
 ```
 
-### 2. Access Grafana
+Open **http://localhost:3000** — login with `admin` / `admin`.
 
-- **URL:** http://localhost:3000
-- **Username:** `admin`
-- **Password:** `admin`
+All six scenario dashboards appear immediately under **Dashboards**. No data entry or manual setup required.
 
-### 3. Verify Server is Running
+### Stop
 
-```powershell
-# Check container status
-docker-compose ps
-
-# View logs
-docker-compose logs -f grafana
-
-# Check if plugin directory is mounted correctly
-docker exec -it grafana-dev ls -la /var/lib/grafana/plugins/
+```bash
+docker compose down
 ```
+
+### Full Reset (wipe all Grafana state)
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+The `-v` flag removes the `grafana-storage` volume, which holds any manual dashboard edits or settings changes made inside the UI. After a full reset, Grafana comes back in a clean provisioned state.
+
+---
+
+## What Is Pre-Provisioned
+
+### Datasources (`provisioning/datasources/testdata.yml`)
+
+| Name | Type | Used For |
+|------|------|----------|
+| `DigitalTwin` | Infinity datasource | All scenario dashboards — queries the mockup twin server |
+| `TestData DB` | Grafana built-in TestData | Free exploration and development testing |
+
+The Infinity datasource is set as the default. It points to `http://mockup-twin:3001` via the `DIGITAL_TWIN_URL` environment variable set in `docker-compose.yml`.
+
+> **Note**: The [Infinity datasource](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/) is a Grafana Labs plugin. It must be installed in Grafana before the datasource works. The Docker Compose environment variable `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` handles the unsigned plugin permission; Infinity itself installs automatically from the Grafana plugin catalogue on first start if internet access is available.
+
+### Dashboards (`provisioning/dashboards/`)
+
+All dashboards are loaded from JSON files at startup and refreshed every 10 seconds if the files change:
+
+| File | Dashboard Name | Scenario |
+|------|---------------|----------|
+| `scenario-free-exploration.json` | Free Exploration | Default — 3 satellites, 4 ground stations |
+| `scenario-1.json` | Collision Risk Analysis | Scenario 1 |
+| `scenario2.json` | Confidence Assessment | Scenario 2 |
+| `scenario3.json` | Communication Anomaly | Scenario 3 |
+| `scenario4.json` | Star Tracker Anomaly | Scenario 4 |
+| `scenario5.json` | Ground Station Antenna Anomaly | Scenario 5 |
+
+`allowUiUpdates: true` is set in `dashboard.yml`, which means you can edit dashboards in the UI during development. Changes are not written back to the JSON files automatically — use **Dashboard settings → JSON model** and copy out manually if you want to save a change.
+
+---
 
 ## Configuration
 
-### Environment Variables (docker-compose.yml)
+Most configuration is done through environment variables in `docker-compose.yml`. The `grafana.ini` file in this directory is present but nearly all its settings are commented out — it exists as a reference for advanced overrides.
 
-- `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=test-plugin` - Allows unsigned plugins during development
-- `GF_DEFAULT_APP_MODE=development` - Enables development mode
-- `GF_PLUGINS_ENABLE_ALPHA=true` - Enables alpha/experimental plugins
-- `GF_LOG_LEVEL=debug` - Detailed logging for troubleshooting
+Key environment variables set in `docker-compose.yml`:
 
-### Volume Mounts
+| Variable | Value | Effect |
+|----------|-------|--------|
+| `GF_SECURITY_ADMIN_USER` | `admin` | Admin username |
+| `GF_SECURITY_ADMIN_PASSWORD` | `admin` | Admin password |
+| `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` | `3d-orbit-attitude-plugin` | Allows the unpublished plugin to load |
+| `GF_DEFAULT_APP_MODE` | `development` | Development mode |
+| `GF_LOG_LEVEL` | `debug` | Verbose logging |
+| `DIGITAL_TWIN_URL` | `http://mockup-twin:3001` | Picked up by provisioning for the Infinity datasource URL |
 
-The plugin directory is mounted from your local machine:
-```
-../grafana-plugins/test-plugin → /var/lib/grafana/plugins/test-plugin
-```
+---
 
-This means any changes to the `dist/` folder in your plugin will be immediately available to Grafana (refresh browser to see changes).
+## Development Workflow
 
-## Common Commands
+### Rebuilding the Plugin
 
-### Start/Stop Server
+If you modify plugin source code, rebuild the plugin and refresh Grafana — no container restart needed:
 
-```powershell
-# Start server (detached)
-docker-compose up -d
+```bash
+# In the plugin directory
+cd grafana-plugins/3d-orbit-attitude-plugin
+npm run build
 
-# Stop server
-docker-compose down
-
-# Restart server (useful after plugin.json changes)
-docker-compose restart grafana
-
-# Stop and remove volumes (fresh start)
-docker-compose down -v
+# Then just refresh http://localhost:3000 in your browser
 ```
 
-### Debugging
+The `dist/` folder is volume-mounted directly into the Grafana container, so the rebuilt files are picked up immediately.
 
-```powershell
-# View real-time logs
-docker-compose logs -f grafana
+### Editing the Mockup Twin
 
-# Access Grafana container shell
-docker exec -it grafana-dev /bin/bash
+The `mockup-digital-twin/src/` folder is also volume-mounted into the `mockup-twin` container. However, since the twin runs with `ts-node` and does not have a file watcher, you need to restart the container after changes:
 
-# Check plugin directory contents
-docker exec -it grafana-dev ls -la /var/lib/grafana/plugins/test-plugin
-
-# Check if plugin is recognized
-docker exec -it grafana-dev grafana-cli plugins ls
+```bash
+docker compose restart mockup-twin
 ```
 
-### Updating Grafana
+### Viewing Logs
 
-```powershell
-# Pull latest Grafana image
-docker-compose pull grafana
+```bash
+# All services
+docker compose logs -f
 
-# Restart with new image
-docker-compose up -d
+# Grafana only
+docker compose logs -f grafana
+
+# Mockup twin only
+docker compose logs -f mockup-twin
 ```
 
-## Plugin Directory Structure
-
-Grafana expects the following structure in the mounted plugin directory:
-
-```
-test-plugin/
-├── dist/
-│   ├── module.js        # Main plugin code (built)
-│   ├── plugin.json      # Plugin manifest
-│   ├── README.md        # Plugin documentation
-│   └── img/             # Plugin icons/images
-├── src/                 # Source code
-└── package.json
-```
-
-**Important:** The entire `test-plugin/` folder is mounted, but Grafana primarily looks in the `dist/` subdirectory for the compiled plugin files.
+---
 
 ## Troubleshooting
 
-### Plugin Not Appearing
+**Dashboards do not appear on first start**
+- The Infinity plugin may still be installing. Wait ~30 seconds and refresh.
+- Check logs: `docker compose logs grafana | grep -i infinity`
 
-1. Check if plugin directory is mounted:
-   ```powershell
-   docker exec -it grafana-dev ls -la /var/lib/grafana/plugins/test-plugin/dist
-   ```
+**Plugin not found / visualization panel shows error**
+- Ensure `grafana-plugins/3d-orbit-attitude-plugin/dist/` exists and contains `plugin.json`
+- Run `npm run build` in the plugin directory if it is missing
+- Restart Grafana: `docker compose restart grafana`
 
-2. Verify `plugin.json` exists and is valid JSON
+**Port 3000 or 3001 already in use**
+- Change the left side of the port mapping in `docker-compose.yml`, e.g. `"3002:3000"`, and access Grafana at `http://localhost:3002`
 
-3. Check Grafana logs for plugin loading errors:
-   ```powershell
-   docker-compose logs -f grafana | findstr "plugin"
-   ```
-
-4. Ensure plugin is listed in `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS`
-
-### Port Already in Use
-
-If port 3000 is already taken:
-
-1. Edit `docker-compose.yml`
-2. Change `"3000:3000"` to `"3001:3000"` (or another available port)
-3. Access Grafana at `http://localhost:3001`
-
-### Permission Issues
-
-On Windows with Docker Desktop, this is usually not an issue. If you encounter permission problems:
-
-```powershell
-# Restart Docker Desktop
-# Or rebuild the container
-docker-compose down
-docker-compose up -d --force-recreate
-```
-
-### Fresh Start
-
-To completely reset Grafana (lose all dashboards/settings):
-
-```powershell
-docker-compose down -v
-docker-compose up -d
-```
-
-## Adding More Plugins
-
-To add additional plugins to the server, update the volume mounts in `docker-compose.yml`:
-
-```yaml
-volumes:
-  - ../grafana-plugins/test-plugin:/var/lib/grafana/plugins/test-plugin
-  - ../grafana-plugins/another-plugin:/var/lib/grafana/plugins/another-plugin
-```
-
-And update the unsigned plugins list:
-
-```yaml
-environment:
-  - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=test-plugin,another-plugin
-```
-
-## Next Steps
-
-After verifying Grafana is running:
-
-1. Navigate to http://localhost:3000
-2. Log in with admin/admin
-3. Go to Configuration → Plugins to see available plugins
-4. Proceed with plugin development (see `grafana-plugins/test-plugin/test-plans/`)
-
-## Resources
-
-- [Grafana Documentation](https://grafana.com/docs/grafana/latest/)
-- [Plugin Development Guide](https://grafana.com/docs/grafana/latest/developers/plugins/)
-- [Docker Hub - Grafana](https://hub.docker.com/r/grafana/grafana)
-
+**Scenario panels show "No data"**
+- Confirm the twin is running: `curl http://localhost:3001/health` should return `{"status":"ok"}`
+- Check that the `DigitalTwin` datasource is reachable: in Grafana go to **Connections → Data sources → DigitalTwin → Test**
