@@ -65,9 +65,11 @@ The `-v` flag removes the `grafana-storage` volume, which holds any manual dashb
 | `DigitalTwin` | Infinity datasource | All scenario dashboards — queries the mockup twin server |
 | `TestData DB` | Grafana built-in TestData | Free exploration and development testing |
 
-The Infinity datasource is set as the default. It points to `http://mockup-twin:3001` via the `DIGITAL_TWIN_URL` environment variable set in `docker-compose.yml`.
+The Infinity datasource is set as the default. Individual dashboard panels store their own API URLs (currently `https://satellite-twin.fly.dev/...` for scenario data), so your local Grafana talks to the **hosted** mock twin on Fly.io for those queries — no manual datasource URL setup is required. The `DIGITAL_TWIN_URL` environment variable in `docker-compose.yml` is reserved for tooling or future provisioning; the provisioned YAML does not substitute it today.
 
-> **Note**: The [Infinity datasource](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/) is a Grafana Labs plugin. It must be installed in Grafana before the datasource works. The Docker Compose environment variable `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` handles the unsigned plugin permission; Infinity itself installs automatically from the Grafana plugin catalogue on first start if internet access is available.
+The **local** `mockup-twin` container is still started alongside Grafana so you can develop the twin server against `http://localhost:3001`, or point panels at it yourself if you replace URLs.
+
+> **Note**: The [Infinity datasource](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/) must be installed in Grafana (typically pulled from the Grafana plugin catalogue on first start when the container has internet access). The unsigned plugins allow-list is only for the **3d-orbit-attitude-plugin** (not published to the Grafana catalogue). Infinity is a signed catalogue plugin.
 
 ### Dashboards (`provisioning/dashboards/`)
 
@@ -96,10 +98,10 @@ Key environment variables set in `docker-compose.yml`:
 |----------|-------|--------|
 | `GF_SECURITY_ADMIN_USER` | `admin` | Admin username |
 | `GF_SECURITY_ADMIN_PASSWORD` | `admin` | Admin password |
-| `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` | `3d-orbit-attitude-plugin` | Allows the unpublished plugin to load |
+| `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` | `3d-orbit-attitude-plugin` | Allows the unpublished 3D plugin to load |
 | `GF_DEFAULT_APP_MODE` | `development` | Development mode |
 | `GF_LOG_LEVEL` | `debug` | Verbose logging |
-| `DIGITAL_TWIN_URL` | `http://mockup-twin:3001` | Picked up by provisioning for the Infinity datasource URL |
+| `DIGITAL_TWIN_URL` | `http://mockup-twin:3001` | Available to containers; scenario panels currently use Fly.io URLs in JSON |
 
 ---
 
@@ -157,5 +159,6 @@ docker compose logs -f mockup-twin
 - Change the left side of the port mapping in `docker-compose.yml`, e.g. `"3002:3000"`, and access Grafana at `http://localhost:3002`
 
 **Scenario panels show "No data"**
-- Confirm the twin is running: `curl http://localhost:3001/health` should return `{"status":"ok"}`
-- Check that the `DigitalTwin` datasource is reachable: in Grafana go to **Connections → Data sources → DigitalTwin → Test**
+- Confirm you have network access to `https://satellite-twin.fly.dev/health` (provisioned dashboards use the hosted twin).
+- For the local twin only: `curl http://localhost:3001/health` should return `{"status":"ok"}`.
+- In Grafana: **Connections → Data sources → DigitalTwin → Test** (Infinity plugin must have loaded).

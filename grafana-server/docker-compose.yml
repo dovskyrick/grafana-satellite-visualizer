@@ -20,7 +20,7 @@ services:
       - "com.grafana.url=http://localhost:3000"
     environment:
       # Allow unsigned plugins (required for development)
-      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=the-cube-panel,3d-orbit-attitude-plugin
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=3d-orbit-attitude-plugin
       # Enable development mode
       - GF_DEFAULT_APP_MODE=development
       # Disable plugin signature validation
@@ -33,9 +33,7 @@ services:
       # Digital twin URL for datasource provisioning
       - DIGITAL_TWIN_URL=http://mockup-twin:3001
     volumes:
-      # Mount the plugin dist folders (note: relative path from grafana-server/ to grafana-plugins/)
-      - ../grafana-plugins/test-plugin/the-cube-panel:/var/lib/grafana/plugins/the-cube-panel
-      # Mount 3d-orbit-attitude-plugin
+      # Mount 3d-orbit-attitude-plugin (built output)
       - ../grafana-plugins/3d-orbit-attitude-plugin/dist:/var/lib/grafana/plugins/3d-orbit-attitude-plugin
       # Mount provisioning for auto-configuration
       - ./provisioning:/etc/grafana/provisioning

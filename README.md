@@ -4,7 +4,7 @@ A comprehensive suite for **real-time 3D visualization of satellite orbits, atti
 
 [![Grafana](https://img.shields.io/badge/Grafana-Plugin-orange?logo=grafana)](https://grafana.com)
 [![CesiumJS](https://img.shields.io/badge/CesiumJS-Powered-blue?logo=cesium)](https://cesium.com/platform/cesiumjs/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./grafana-plugins/3d-orbit-attitude-plugin/LICENSE)
 
 **🌐 [Try Live Demo](https://satellite-visualizer-demo.fly.dev/)** - No installation required!
 
@@ -37,11 +37,34 @@ A comprehensive suite for **real-time 3D visualization of satellite orbits, atti
 👉 **[Generator Documentation](./satellite-data-generator/README.md)**
 
 ### 3. [Grafana Server Setup](./grafana-server/)
-**Pre-configured Docker Compose** setup for self-hosted Grafana:
-- Unsigned plugin support enabled
-- Plugin directory pre-mounted
-- TestData data source pre-configured
-- Ready to run out-of-the-box
+**Docker Compose** stack that starts Grafana and the mock twin side by side:
+- 3D plugin mounted from `dist/`
+- Six scenario dashboards provisioned from JSON
+- TestData and Infinity datasources pre-configured
+
+👉 **[Grafana server guide](./grafana-server/README.md)**
+
+### 4. [Mockup Digital Twin](./mockup-digital-twin/)
+**HTTP simulation server** that generates orbital trajectories, collision-risk curves, confidence tables, link-health telemetry, and star-tracker anomaly series for the scenario dashboards. Runs locally in Docker and is deployed publicly on Fly.io.
+
+👉 **[Twin server documentation](./mockup-digital-twin/README.md)**
+
+---
+
+## Thesis Evaluation Scenarios
+
+The hosted demo ships **six provisioned dashboards**, each built for a distinct operator task (described in detail in the thesis text):
+
+| Dashboard | Focus |
+|-----------|--------|
+| Free Exploration | Browse three satellites and ground stations with full 3D controls |
+| Collision Risk Analysis | Conjunction screen — qualitative confidence pre-attributed to sources |
+| Confidence Assessment | Same geometry — operator assigns confidence (stored briefly via API) |
+| Communication Anomaly | Link telemetry vs attitude/antenna alignment |
+| Star Tracker Anomaly | Celestial exclusion context vs attitude quality |
+| Ground Station Antenna Anomaly | Pass geometry — anomaly attributed to ground hardware |
+
+No manual data upload is required to run through a scenario.
 
 ---
 
@@ -51,15 +74,15 @@ A comprehensive suite for **real-time 3D visualization of satellite orbits, atti
 
 **🌐 [satellite-visualizer-demo.fly.dev](https://satellite-visualizer-demo.fly.dev/)**
 
-No installation needed! Click the link and start exploring immediately. The demo includes 3 satellites (Starlink-4021, Hubble, ISS) with sensors and attitude visualization.
+No installation needed. The deployment includes the scenario dashboards above and the full 3D visualizer (with sensors, attitude, celestial map, and cross-panel time sync where configured).
 
 ### Option 2: Run Locally (5 Minutes)
 
 **What you get out-of-the-box:**
-- ✅ Grafana with plugin pre-installed
-- ✅ Demo dashboard auto-created
-- ✅ TestData datasource pre-configured
-- ✅ Works immediately with default base layer!
+- Grafana with the 3D plugin loaded from `dist/`
+- Mock digital twin + Grafana via **one** Compose command
+- Six scenario dashboards provisioned automatically
+- Works with the default Cesium base layer (no Ion token required)
 
 ### Prerequisites
 - Docker & Docker Compose ([Install Guide](https://docs.docker.com/get-docker/))
@@ -73,29 +96,23 @@ cd grafana-satellite-visualizer
 
 > **Note**: The plugin is pre-built and included in the repository. No build step required!
 
-### Step 2: Start Grafana
+### Step 2: Start Grafana and the mock twin
 ```bash
 cd grafana-server
-docker-compose up -d
+docker compose up -d
 ```
 
-**🌐 Access Grafana at: http://localhost:3000**  
-**Login:** admin / admin
+**Access Grafana:** http://localhost:3000 — login `admin` / `admin`.
 
-> **Tip:** To see startup logs, use `docker-compose up` (without `-d`)
+> **Tip:** To watch startup logs, run `docker compose up` (without `-d`).
 
-### Step 3: Open Demo Dashboard
+### Step 3: Open a dashboard
 
-The demo dashboard is **automatically created** with test data included!
+Under **Dashboards**, open **Free Exploration** or any **scenario** dashboard. Scenario panels load data from the public mock twin on Fly.io (`satellite-twin.fly.dev`); ensure your machine has internet access.
 
-1. Go to **Dashboards** → **Satellite Visualizer Demo**
-2. **That's it!** Three satellites are now orbiting Earth in 3D! 🛰️
+> **Optional:** For premium Cesium imagery or terrain, add a Cesium Ion token in the panel options ([signup](https://cesium.com/ion/signup)). The default globe works without it.
 
-> **💡 Optional**: To use premium base layers (satellite imagery, terrain maps), add a Cesium Ion Access Token in **Panel Options** ([Get free token](https://cesium.com/ion/signup)). The default base layer works without any token.
-
-> **What's included:** Starlink-4021, Hubble Space Telescope, and ISS with sensor coverage
-
-👉 **[Detailed Setup Guide](./grafana-plugins/3d-orbit-attitude-plugin/README.md#-quick-start)**
+👉 **[Grafana server details](./grafana-server/README.md)** · **[Plugin quick start](./grafana-plugins/3d-orbit-attitude-plugin/README.md#-quick-start)**
 
 ---
 
@@ -133,17 +150,19 @@ Real-time orientation display:
 Seamless integration with Grafana ecosystem:
 - ⏱️ Native timeline controls
 - 🔄 Settings persistence (no timeline reset)
-- 📊 TestData data source compatibility
-- 🎨 Panel customization options
+- ⏱️ Cross-panel hover sync with time series (shared crosshair)
+- 📊 TestData for local JSON experiments; **Infinity** + mock twin for scenario dashboards
+- 🎨 Extensive panel options
 
 ---
 
 ## 📚 Documentation
 
-- **[Plugin README](./grafana-plugins/3d-orbit-attitude-plugin/README.md)** - Complete plugin documentation
-- **[ROADMAP](./grafana-plugins/3d-orbit-attitude-plugin/ROADMAP.md)** - Future features and planned improvements
-- **[Data Generator](./satellite-data-generator/README.md)** - Test data generation guide
-- **[Development Guide](./grafana-plugins/3d-orbit-attitude-plugin/README.md#-development)** - Building and contributing
+- **[Plugin README](./grafana-plugins/3d-orbit-attitude-plugin/README.md)** — Panel plugin (data format, options, development)
+- **[Grafana server](./grafana-server/README.md)** — Docker Compose, datasources, provisioned dashboards
+- **[Mockup digital twin](./mockup-digital-twin/README.md)** — HTTP API and Fly.io deployment
+- **[ROADMAP](./grafana-plugins/3d-orbit-attitude-plugin/ROADMAP.md)** — Planned improvements
+- **[Data generator](./satellite-data-generator/README.md)** — Local JSON test data
 
 ---
 
@@ -168,11 +187,13 @@ Seamless integration with Grafana ecosystem:
 
 ## 🛠️ Technology Stack
 
-- **[CesiumJS](https://cesium.com/platform/cesiumjs/)** - 3D geospatial visualization engine
-- **[Resium](https://resium.reearth.io/)** - React components for CesiumJS
-- **[Grafana](https://grafana.com/)** - Monitoring and visualization platform
-- **[React](https://react.dev/)** - UI framework
-- **[TypeScript](https://www.typescriptlang.org/)** - Type-safe development
+- **[CesiumJS](https://cesium.com/platform/cesiumjs/)** — 3D globe and orbit rendering
+- **[Resium](https://resium.reearth.io/)** — React bindings for Cesium
+- **[Grafana](https://grafana.com/)** — Dashboard host and time controls
+- **[Infinity datasource](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)** — JSON from the mock twin into panels
+- **[React](https://react.dev/)** & **[TypeScript](https://www.typescriptlang.org/)** — Plugin UI
+- **Node.js / Express** — Mock digital twin server
+- **[Fly.io](https://fly.io/)** — Hosted Grafana + twin for the public demo
 
 ---
 
@@ -181,22 +202,13 @@ Seamless integration with Grafana ecosystem:
 ```
 grafana-satellite-visualizer/
 ├── grafana-plugins/
-│   └── 3d-orbit-attitude-plugin/    # Main Grafana plugin
-│       ├── src/                     # Plugin source code
-│       ├── dist/                    # Built plugin (included)
-│       ├── README.md                # Plugin documentation
-│       ├── ROADMAP.md               # Future features
-│       └── package.json
-├── satellite-data-generator/        # Test data generation scripts
-│   ├── src/                         # Generator source code
-│   ├── output/                      # Pre-generated test data
-│   │   ├── multi-satellite.json    # 3 satellites (default)
-│   │   └── many-satellites.json    # 14 satellites (stress test)
-│   ├── README.md
-│   └── package.json
-├── grafana-server/                  # Docker setup for Grafana
-│   └── docker-compose.yml
-└── README.md                        # This file
+│   └── 3d-orbit-attitude-plugin/    # 3D panel plugin (source + committed dist/)
+├── mockup-digital-twin/             # Scenario API server (TypeScript, Fly.io)
+├── satellite-data-generator/        # Optional local JSON test data
+├── grafana-server/                  # docker compose + provisioned dashboards
+│   ├── docker-compose.yml
+│   └── provisioning/
+└── README.md
 ```
 
 ---
@@ -206,10 +218,10 @@ grafana-satellite-visualizer/
 ### Common Issues
 
 **Plugin doesn't appear in Grafana:**
-- Ensure Grafana started correctly: `docker-compose ps`
+- Ensure containers are up: `docker compose ps` (from `grafana-server/`)
 - Rebuild the plugin: `cd grafana-plugins/3d-orbit-attitude-plugin && npm run build`
-- Restart Grafana: `cd ../../grafana-server && docker-compose restart`
-- View logs: `docker-compose logs grafana`
+- Restart Grafana: `cd ../../grafana-server && docker compose restart grafana`
+- View logs: `docker compose logs grafana`
 
 **"Invalid Access Token" error:**
 - This only occurs if you try to use premium Cesium base layers/textures
@@ -260,7 +272,7 @@ npm run build
 
 # Start Grafana
 cd ../../grafana-server
-docker-compose up
+docker compose up
 ```
 
 **For active development** (if you're modifying plugin code):
@@ -271,7 +283,7 @@ npm run dev
 
 # In another terminal, start Grafana
 cd ../../grafana-server
-docker-compose up
+docker compose up
 ```
 
 With `npm run dev`, changes to plugin source will auto-rebuild. Refresh Grafana to see updates.
@@ -341,8 +353,8 @@ If you find this project useful, please ⭐ star the repository to help others d
 - 🎓 **Academic Use**: Suitable for research and education
 - 🚀 **Community Driven**: Seeking feedback for improvements
 
-**Current Version**: 1.0.0  
-**Last Updated**: December 18, 2025
+**Current Version**: 1.2.0  
+**Last Updated**: May 6, 2026
 
 ---
 
