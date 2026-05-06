@@ -4,7 +4,7 @@ All notable changes to this project are recorded here. Versioning follows the pl
 
 ---
 
-## [1.2.0] — 2026-05-06
+## [1.1.0] — 2026-05-06
 
 ### Panel Plugin
 See [grafana-plugins/3d-orbit-attitude-plugin/CHANGELOG.md](./grafana-plugins/3d-orbit-attitude-plugin/CHANGELOG.md) for the full plugin changelog.

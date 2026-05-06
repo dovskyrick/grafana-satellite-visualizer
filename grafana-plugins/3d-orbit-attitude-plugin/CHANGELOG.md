@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.0] — 2026-05-06
+## [1.1.0] — 2026-05-06
 
 ### Added
 - **Celestial map view** — full 360°×180° SVG equirectangular sky map showing sensor FOV rings, Sun/Moon markers, solar exclusion zone (15° keep-out cone), Earth exclusion band, and a zoomed/total-map toggle

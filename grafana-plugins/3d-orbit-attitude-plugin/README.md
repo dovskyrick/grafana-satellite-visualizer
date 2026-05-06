@@ -98,7 +98,7 @@ The plugin can be pointed at a mock digital twin server to drive scenario-specif
 - **`scenarioId`** selects scenario-specific satellite data, anomaly injection, and orbital geometry
 - Scenarios 3 & 5: antenna orientation automatically overrides body attitude to track the ground station
 - Scenario 4: body attitude automatically overrides to sun-pointing; star-tracker exclusion shown on celestial map
-- Scenario 2: confidence slider in the satellite settings modal POSTs to the server
+- Scenario 2: source reliability level slider in the satellite settings modal POSTs to the server
 
 ---
 
@@ -370,7 +370,7 @@ Sensors are defined in `meta.custom.sensors`:
 - **Select Satellite**: Click any satellite entry to track it
 - **Hide/Show Satellites**: Click the visibility toggle (◉/○) for each satellite
 - **Tracking Indicator**: 🎯 shows which satellite is currently tracked
-- **Satellite Settings**: Click the ⚙ gear icon on any satellite to open the settings modal (transparent cones, confidence slider for Scenario 2)
+- **Satellite Settings**: Click the ⚙ gear icon on any satellite to open the settings modal (transparent cones, source reliability level slider for Scenario 2)
 - **Ground Station entries**: Listed below satellites; click to switch the ground-station polar view
 
 ### Camera Modes (top-left buttons)
@@ -456,7 +456,7 @@ grafana-plugins/3d-orbit-attitude-plugin/
 
 ---
 
-## 🆕 What's New in v1.2.0
+## 🆕 What's New in v1.1.0
 
 These features were added after the initial `v1.0.1` release:
 
@@ -464,7 +464,7 @@ These features were added after the initial `v1.0.1` release:
 - **Ground station view** — polar-plot pass perspective per ground station
 - **Uncertainty ellipsoids** — 3D orbital uncertainty rendering with configurable opacity and colour
 - **Mock digital twin integration** — `digitalTwinUrl` + `scenarioId` panel options drive scenario-specific orbital geometry and anomaly injection
-- **Confidence slider** — per-satellite confidence input in Scenario 2 POSTs to the twin server
+- **Source reliability level slider** — per-satellite input in Scenario 2 POSTs to the twin server
 - **Tooltip pinning** — click to lock the crosshair at a specific time (requires Grafana 11+)
 - **Trajectory solid/dashed split** — segment before/after last observed time rendered differently
 - **Transparency toggle** for sensor cones per satellite

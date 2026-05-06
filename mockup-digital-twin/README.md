@@ -8,15 +8,15 @@ A lightweight TypeScript/Express HTTP server that acts as the simulated spacecra
 
 ## What It Does
 
-The server has no database. Every response is computed at request time from deterministic orbital math, anchored to **30-minute time slots** so that the satellite positions, TCA timestamps, anomaly windows, and confidence table values stay consistent across dashboard reloads and auto-refreshes within the same slot.
+The server has no database. Every response is computed at request time from deterministic orbital math, anchored to **30-minute time slots** so that the satellite positions, TCA timestamps, anomaly windows, and source reliability table values stay consistent across dashboard reloads and auto-refreshes within the same slot.
 
 It drives six Grafana dashboards:
 
 | Scenario | Dashboard | What It Evaluates |
 |----------|-----------|-------------------|
 | 0 | Free Exploration | General 3D orbit and attitude browsing — 3 satellites + 4 ground stations |
-| 1 | Collision Risk Analysis | Conjunction assessment with pre-assigned source confidence — 4 trajectories with different observation ages and uncertainty growth |
-| 2 | Confidence Assessment | Same conjunction geometry but the operator must assign confidence themselves — one trajectory has a suspiciously frozen ellipsoid |
+| 1 | Collision Risk Analysis | Conjunction assessment with pre-assigned source reliability levels — 4 trajectories with different observation ages and uncertainty growth |
+| 2 | Source Reliability Assessment | Same conjunction geometry but the operator must assign source reliability themselves — one trajectory has a suspiciously frozen ellipsoid |
 | 3 | Communication Anomaly | Single satellite with an antenna sensor; link health drops during the 2nd contact window with a Lisbon ground station |
 | 4 | Star Tracker Anomaly | Periodic 4-minute attitude degradation every 30-minute cycle when the star tracker enters solar exclusion |
 | 5 | Ground Station Antenna Anomaly | Same orbit and link data as Scenario 3, but the anomaly is attributed to the ground antenna, not the spacecraft |
@@ -33,8 +33,8 @@ All endpoints return JSON. Time parameters (`from`, `to`) are Unix timestamps in
 | `GET` | `/api/satellites` | `from`, `to`, `scenario` | Main satellite trajectory data for the 3D plugin. Returns an array of satellite frames, each containing orbital columns and rows, sensor definitions, and uncertainty ellipsoid data. |
 | `GET` | `/api/risk` | `from`, `to` | Gaussian collision risk curve centred on TCA. σ = 20 minutes, one point per minute. |
 | `GET` | `/api/tca-marker` | — | Single-point timestamp marking the Time of Closest Approach, used to draw a vertical annotation line on timeseries panels. |
-| `GET` | `/api/confidence` | `scenario` | Confidence metadata table: trajectory ID, source reliability score, ellipsoid size at TCA, time since last observation, and source name. For Scenario 2, reflects operator-submitted values if present. |
-| `POST` | `/api/confidence` | — | Body: `{ "id": "sat-2a", "confidence": 7 }`. Stores an operator-assigned confidence score for Scenario 2 with a 10-minute TTL. |
+| `GET` | `/api/confidence` | `scenario` | Source reliability table: trajectory ID, source reliability score, ellipsoid size at TCA, time since last observation, and source name. For Scenario 2, reflects operator-submitted values if present. |
+| `POST` | `/api/confidence` | — | Body: `{ "id": "sat-2a", "confidence": 7 }`. Stores an operator-assigned source reliability score for Scenario 2 with a 10-minute TTL. |
 | `GET` | `/api/link-elevation` | `from`, `to` | Satellite elevation angle above the Lisbon ground station horizon (Scenario 3). |
 | `GET` | `/api/link-status` | `from`, `to` | Binary link health (100 = healthy, 0 = no contact or injected anomaly) for Scenario 3. |
 | `GET` | `/api/link-anomaly` | `from`, `to` | Anomaly intensity signal (triangle pulse in the middle third of the 2nd contact window) for Scenario 3. |
@@ -53,7 +53,7 @@ Pass `scenario=<n>` to `/api/satellites` and `/api/confidence`:
 ```
 0 = Default (free exploration)
 1 = Collision Risk Analysis
-2 = Confidence Assessment
+2 = Source Reliability Assessment
 3 = Communication Anomaly
 4 = Star Tracker Anomaly
 5 = Ground Station Antenna Anomaly
@@ -68,13 +68,13 @@ The TCA timestamp and orbit anchor are both snapped to **30-minute boundaries** 
 - **TCA** = `floor(now / 30min) * 30min + 90min` (always 1h30min into the future from the current slot start)
 - **Scenario 3/4/5 orbit anchor** = `floor(now / 30min) * 30min − 6h`
 
-This means every request within the same 30-minute window returns identical timestamps, keeping the 3D plugin, risk curve, TCA marker, and confidence table perfectly synchronised without any shared state.
+This means every request within the same 30-minute window returns identical timestamps, keeping the 3D plugin, risk curve, TCA marker, and source reliability table perfectly synchronised without any shared state.
 
 ---
 
 ## Session Isolation (Scenario 2)
 
-Scenario 2 requires each test user to assign their own confidence scores without seeing other users' values. This is solved without user accounts:
+Scenario 2 requires each test user to assign their own source reliability scores without seeing other users' values. This is solved without user accounts:
 
 - The Grafana dashboard URL contains a unique session token as a template variable
 - Every `POST /api/confidence` request stores the value in memory under the satellite ID with a **10-minute TTL**
