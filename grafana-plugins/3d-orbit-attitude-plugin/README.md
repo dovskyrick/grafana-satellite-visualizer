@@ -343,9 +343,6 @@ Sensors are defined in `meta.custom.sensors`:
 - **Show Scene Mode Picker**: 2D/3D/Columbus view toggle
 - **Show Projection Picker**: Perspective/orthographic toggle
 
-### Custom Controls
-
-- **Show Nadir View Button**: Display quick nadir view button
 
 ---
 
