@@ -2,7 +2,7 @@
 
 A powerful Grafana panel plugin for **real-time 3D visualization of satellite orbits, attitude, and sensor field-of-view** projections. Built on [CesiumJS](https://cesium.com/platform/cesiumjs/) for high-performance geospatial rendering.
 
-**🌐 [Try Live Demo](https://satellite-visualizer-demo.fly.dev/)** - No installation required!
+**🌐 [Try Live Demo](https://satellite-visualizer-demo.fly.dev/)** — No installation required!
 
 ![3D Satellite Visualization](./src/img/Grafana_Vis_Example_2.png)
 
@@ -68,6 +68,37 @@ Perfect for satellite operations teams, aerospace researchers, and mission contr
 - Satellite position, attitude, and sensor cones all update in real time as you move the cursor
 - Works with Grafana's native **Shared Crosshair** feature — no extra plugins needed
 - Controlled via the **Subscribe to data hover event** toggle in panel options (on by default)
+- **Tooltip pinning**: click the tooltip to lock it at a specific moment while you inspect the 3D view
+
+### 🗺️ Celestial Map View
+A 2D equirectangular (360°×180°) star-field map rendered as an SVG overlay, showing the full celestial sphere from the satellite's perspective:
+- **RA/Dec grid** with coordinate labels
+- **Sensor FOV rings** projected onto the sky — one per sensor, with name labels and colour coding
+- **Sun and Moon markers** with position labels
+- **Solar exclusion zone** — 15° keep-out cone around the Sun, shown as a dashed gold ring with legend entry
+- **Earth exclusion zone** — below-horizon region blocked by the Earth disc, shown as a coloured band
+- **Zoomed / total-map toggle** — switch between full 360° overview and a zoomed-in detail view
+- Welcome modal on first open explaining the view
+
+### 📡 Ground Station View
+A polar-plot perspective centred on a selected ground station:
+- Shows satellite passes as arcs across the local sky (azimuth vs elevation)
+- Ground station selection and tracking in the sidebar
+- Separate settings modal per ground station
+
+### 📐 Uncertainty Ellipsoids
+Visualize orbital uncertainty directly in 3D:
+- Along-track, cross-track, and radial semi-axes rendered as transparent 3D ellipsoids
+- Opacity mode selectable per panel (`High` 70%, `Medium` 30%, `Low` 10%)
+- Colour customizable; scales with the data stream over time
+
+### 🛰️ Scenario Mode (Mock Digital Twin Integration)
+The plugin can be pointed at a mock digital twin server to drive scenario-specific behaviour:
+- **`digitalTwinUrl`** panel option sets the server base URL
+- **`scenarioId`** selects scenario-specific satellite data, anomaly injection, and orbital geometry
+- Scenarios 3 & 5: antenna orientation automatically overrides body attitude to track the ground station
+- Scenario 4: body attitude automatically overrides to sun-pointing; star-tracker exclusion shown on celestial map
+- Scenario 2: confidence slider in the satellite settings modal POSTs to the server
 
 ---
 
@@ -206,7 +237,7 @@ The plugin expects JSON data with the following structure:
             "id": "sat1-sens0",
             "name": "Main Camera",
             "fov": 15,
-            "orientation": { "qx": 0, "qy": 0, "qz": 0, "qw": 1 }
+            "orientation": { "qx": 0, "qy": 0, "qz": 0, "qw": 1 }  // sensor body-relative quaternion
           }
         ]
       }
@@ -239,7 +270,10 @@ The plugin expects JSON data with the following structure:
 | 2        | longitude | number | Longitude (geodetic) / x (ECI/ECEF)                   | deg / m   |
 | 3        | latitude  | number | Latitude (geodetic) / y (ECI/ECEF)                    | deg / m   |
 | 4        | altitude  | number | Altitude above ellipsoid (geodetic) / z (ECI/ECEF)    | m         |
-| 5-8      | qx,qy,qz,qs | number | Orientation quaternion (x, y, z, scalar components)  | unitless  |
+| 5-8      | qx,qy,qz,qs  | number | Orientation quaternion (x, y, z, scalar components)         | unitless  |
+| 9        | ell_along    | number | Uncertainty ellipsoid along-track semi-axis (optional)      | m         |
+| 10       | ell_cross    | number | Uncertainty ellipsoid cross-track semi-axis (optional)      | m         |
+| 11       | ell_radial   | number | Uncertainty ellipsoid radial semi-axis (optional)           | m         |
 
 ### Sensor Definitions (Optional)
 
@@ -251,10 +285,10 @@ Sensors are defined in `meta.custom.sensors`:
   "name": "Display Name",
   "fov": 15,  // Half-angle in degrees
   "orientation": {
-    "qx": 0,  // Quaternion relative to satellite body
+    "qx": 0,
     "qy": 0,
     "qz": 0,
-    "qw": 1
+    "qw": 1   // sensor body-relative quaternion (scalar component)
   }
 }
 ```
@@ -289,6 +323,17 @@ Sensors are defined in `meta.custom.sensors`:
 - **Show RA/Dec Grid**: Display celestial coordinate grid
 - **Grid Spacing**: RA/Dec grid density
 - **Show Grid Labels**: Toggle coordinate labels
+
+### Uncertainty Ellipsoid Settings
+
+- **Show Uncertainty Ellipsoids**: Toggle 3D ellipsoid rendering
+- **Uncertainty Opacity Mode**: High (70%), Medium (30%), Low (10%)
+- **Uncertainty Color**: Fill colour for all ellipsoids
+
+### Scenario / Digital Twin Settings
+
+- **Digital Twin URL**: Base URL for the mock digital twin server (e.g. `https://satellite-twin.fly.dev`). Leave empty to use only the Grafana datasource data.
+- **Scenario ID**: Selects the orbital geometry and scenario-specific behaviour (0 = default, 1–5 = evaluation scenarios)
 
 ### Cesium UI Controls
 
@@ -328,6 +373,15 @@ Sensors are defined in `meta.custom.sensors`:
 - **Select Satellite**: Click any satellite entry to track it
 - **Hide/Show Satellites**: Click the visibility toggle (◉/○) for each satellite
 - **Tracking Indicator**: 🎯 shows which satellite is currently tracked
+- **Satellite Settings**: Click the ⚙ gear icon on any satellite to open the settings modal (transparent cones, confidence slider for Scenario 2)
+- **Ground Station entries**: Listed below satellites; click to switch the ground-station polar view
+
+### Camera Modes (top-left buttons)
+
+- **Satellite view**: Standard orbit with camera following / free-roam around Earth
+- **Earth view**: Globe-centric orientation
+- **Celestial map**: 2D equirectangular all-sky view
+- **Ground station view**: Polar pass plot centred on the selected ground station
 
 ### Timeline Interaction
 
@@ -402,6 +456,22 @@ grafana-plugins/3d-orbit-attitude-plugin/
 ├── tsconfig.json
 └── README.md
 ```
+
+---
+
+## 🆕 What's New in v1.2.0
+
+These features were added after the initial `v1.0.1` release:
+
+- **Celestial map view** — full 360°×180° SVG sky map with sensor FOV rings, Sun/Moon markers, solar and Earth exclusion zones, and legend entry
+- **Ground station view** — polar-plot pass perspective per ground station
+- **Uncertainty ellipsoids** — 3D orbital uncertainty rendering with configurable opacity and colour
+- **Mock digital twin integration** — `digitalTwinUrl` + `scenarioId` panel options drive scenario-specific orbital geometry and anomaly injection
+- **Confidence slider** — per-satellite confidence input in Scenario 2 POSTs to the twin server
+- **Tooltip pinning** — click to lock the crosshair at a specific time (requires Grafana 11+)
+- **Trajectory solid/dashed split** — segment before/after last observed time rendered differently
+- **Transparency toggle** for sensor cones per satellite
+- **Line-of-sight (LoS) visibility** — ground footprint mutual-exclusion with LoS view
 
 ---
 
