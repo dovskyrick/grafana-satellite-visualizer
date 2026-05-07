@@ -9,6 +9,28 @@ import {
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const MAX_DURATION_S = 12 * 60 * 60; // 12 hours cap
+const HALF_WINDOW_MS = (MAX_DURATION_S / 2) * 1000; // 6 hours in ms
+
+// Hard clamp: never serve data outside [now−6h, now+6h].
+// Prevents OOM crashes when Grafana sends very wide time ranges on initial load.
+function clampToWindow(fromMs: number, toMs: number): [number, number] {
+  const nowMs = Date.now();
+  return [
+    Math.max(fromMs, nowMs - HALF_WINDOW_MS),
+    Math.min(toMs,   nowMs + HALF_WINDOW_MS),
+  ];
+}
+
+// Adaptive step for Scenarios 1 & 2: targets MIN_POINTS across the window so
+// tight zoom-ins stay smooth in Cesium. Ceiling at 60 s preserves current
+// behaviour for normal windows; floor at 10 s is the physical resolution limit.
+const MIN_POINTS = 120;
+const MIN_STEP_S = 10;
+const MAX_STEP_S = 60;
+
+function adaptiveStepS(durationSeconds: number): number {
+  return Math.max(MIN_STEP_S, Math.min(MAX_STEP_S, Math.floor(durationSeconds / MIN_POINTS)));
+}
 
 // Returns a stable TCA timestamp quantized to 30-minute slots.
 // Every request within the same 30-minute window computes the identical value,
@@ -160,8 +182,11 @@ function generateScenario1(fromMs: number, toMs: number) {
   // If TCA falls outside the window one side will be 0 and that arc is skipped.
   const backDurationS = Math.max((tcaMs - fromMs) / 1000, 0);
   const fwdDurationS  = Math.max((toMs  - tcaMs)  / 1000, 0);
-  const numPointsBack = backDurationS > 0 ? Math.floor(backDurationS / 60) + 1 : 0;
-  const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / 60) + 1 : 0;
+  // stepS is derived from the total window so both arcs share the same cadence —
+  // no density seam at TCA when the window is zoomed in asymmetrically.
+  const stepS         = adaptiveStepS(backDurationS + fwdDurationS);
+  const numPointsBack = backDurationS > 0 ? Math.floor(backDurationS / stepS) + 1 : 0;
+  const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / stepS) + 1 : 0;
 
   const COLLISION_SATELLITES = [
     {
@@ -254,8 +279,9 @@ function generateScenario2(fromMs: number, toMs: number) {
 
   const backDurationS = Math.max((tcaMs - fromMs) / 1000, 0);
   const fwdDurationS  = Math.max((toMs  - tcaMs)  / 1000, 0);
-  const numPointsBack = backDurationS > 0 ? Math.floor(backDurationS / 60) + 1 : 0;
-  const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / 60) + 1 : 0;
+  const stepS         = adaptiveStepS(backDurationS + fwdDurationS);
+  const numPointsBack = backDurationS > 0 ? Math.floor(backDurationS / stepS) + 1 : 0;
+  const numPointsFwd  = fwdDurationS  > 0 ? Math.floor(fwdDurationS  / stepS) + 1 : 0;
 
   const COLLISION_SATELLITES = [
     {
@@ -552,10 +578,10 @@ function generateTrajectory(fromMs: number, toMs: number, durationSeconds: numbe
 function generateRiskCurve(fromMs: number, toMs: number): Array<{ time: number; risk: number; tca_marker: number | null }> {
   const tcaMs  = getTcaMs();
   const sigma  = 20 * 60 * 1000; // 20 minutes in ms
-  const stepMs = 60 * 1000;      // one point per minute
+  const stepMs = adaptiveStepS((toMs - fromMs) / 1000) * 1000;
   const points = [];
 
-  // Snap TCA to the nearest minute so the marker lands exactly on a grid point
+  // Snap TCA to the nearest step so the marker lands exactly on a grid point
   const tcaSnapped = Math.round(tcaMs / stepMs) * stepMs;
 
   for (let t = fromMs; t <= toMs; t += stepMs) {
@@ -879,8 +905,9 @@ function handleTcaMarker(_req: Request, res: Response) {
 }
 
 function handleRisk(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
 
   console.log(
     `[${new Date().toISOString()}] GET /api/risk` +
@@ -892,22 +919,25 @@ function handleRisk(req: Request, res: Response) {
 }
 
 function handleElevation(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/link-elevation  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateElevation(fromMs, toMs));
 }
 
 function handleLinkStatus(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/link-status  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateLinkStatus(fromMs, toMs));
 }
 
 function handleCommAnomaly(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/link-anomaly  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateCommAnomaly(fromMs, toMs));
 }
@@ -928,22 +958,25 @@ function handleAnomalyWindow(_req: Request, res: Response) {
 // dashboards for the two scenarios can be independently configured.
 // ---------------------------------------------------------------------------
 function handleSc5Elevation(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/sc5-link-elevation  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateElevation(fromMs, toMs));
 }
 
 function handleSc5LinkStatus(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/sc5-link-status  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateLinkStatus(fromMs, toMs));
 }
 
 function handleSc5CommAnomaly(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/sc5-link-anomaly  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateCommAnomaly(fromMs, toMs));
 }
@@ -959,23 +992,26 @@ function handleSc5AnomalyWindow(_req: Request, res: Response) {
 }
 
 function handleStarsMatched(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/stars-matched  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateStarsMatched(fromMs, toMs));
 }
 
 function handleTrackerAnomaly(req: Request, res: Response) {
-  const toMs   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
-  const fromMs = req.query.from ? parseInt(req.query.from as string) : toMs - MAX_DURATION_S * 1000;
+  const rawTo   = req.query.to   ? parseInt(req.query.to   as string) : Date.now();
+  const rawFrom = req.query.from ? parseInt(req.query.from as string) : rawTo - MAX_DURATION_S * 1000;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
   console.log(`[${new Date().toISOString()}] GET /api/tracker-anomaly  from=${new Date(fromMs).toISOString()}  to=${new Date(toMs).toISOString()}`);
   res.json(generateTrackerAnomaly(fromMs, toMs));
 }
 
 function handleSatellites(req: Request, res: Response) {
-  const toMs     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
-  const fromMs   = req.query.from     ? parseInt(req.query.from     as string) : toMs - MAX_DURATION_S * 1000;
-  const scenario = req.query.scenario ? parseInt(req.query.scenario as string) : ScenarioId.Default;
+  const rawTo     = req.query.to       ? parseInt(req.query.to       as string) : Date.now();
+  const rawFrom   = req.query.from     ? parseInt(req.query.from     as string) : rawTo - MAX_DURATION_S * 1000;
+  const scenario  = req.query.scenario ? parseInt(req.query.scenario as string) : ScenarioId.Default;
+  const [fromMs, toMs] = clampToWindow(rawFrom, rawTo);
 
   const requestedSeconds = (toMs - fromMs) / 1000;
   const durationSeconds  = Math.min(requestedSeconds, MAX_DURATION_S);

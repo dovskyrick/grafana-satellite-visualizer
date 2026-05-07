@@ -10,4 +10,4 @@ COPY src/ ./src/
 
 EXPOSE 3001
 
-CMD ["npx", "ts-node", "src/server.ts"]
+CMD ["node", "--max-old-space-size=400", "-r", "ts-node/register", "src/server.ts"]
