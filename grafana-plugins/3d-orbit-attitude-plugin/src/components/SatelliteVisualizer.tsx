@@ -1416,7 +1416,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     imageryLayers.addImageryProvider(cartoNoLabelsProvider);
   }, [viewerKey]); // Run when Viewer is created/remounted
 
-  // Publish the Cesium clock time to the event bus every 500 ms while playing.
+  // Publish the Cesium clock time to the event bus every 200 ms while playing.
   // This drives the crosshair in all time series panels in sync with the animation.
   useEffect(() => {
     const id = setInterval(() => {
@@ -1426,7 +1426,7 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
       isOwnPublish.current = true;
       eventBus.publish(new DataHoverEvent({ point: { time: timeMs } }));
       isOwnPublish.current = false;
-    }, 500);
+    }, 200);
     return () => clearInterval(id);
   }, [eventBus]);
 
