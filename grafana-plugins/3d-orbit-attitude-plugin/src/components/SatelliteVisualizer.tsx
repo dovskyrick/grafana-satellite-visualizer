@@ -309,6 +309,10 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
   // triggering re-renders on every satellite frame.
   const anomalyWindowRef = React.useRef<{ start: number; end: number } | null>(null);
 
+  // Self-echo guard: set to true while Cesium is publishing to the event bus so
+  // the hover handler ignores its own events and doesn't stop the clock mid-play.
+  const isOwnPublish = React.useRef(false);
+
   // Attitude vector configurations — colors driven by frameColors state (legend color picker)
   // Default fallbacks match the initial frameColors values so startup appearance is identical.
   const attitudeVectors = React.useMemo(() => {
@@ -1412,22 +1416,19 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     imageryLayers.addImageryProvider(cartoNoLabelsProvider);
   }, [viewerKey]); // Run when Viewer is created/remounted
 
-  // One-time test: verify Grafana's event bus dispatches synchronously.
-  // Check the browser console for '[cesium-plugin] event bus is synchronous: true/false'.
-  // true  → the isOwnPublish ref guard is safe to use as designed.
-  // false → flag must be cleared with setTimeout(..., 0) instead.
+  // Publish the Cesium clock time to the event bus every 500 ms while playing.
+  // This drives the crosshair in all time series panels in sync with the animation.
   useEffect(() => {
-    let firedDuringPublish = false;
-    const isPublishing = { current: false };
-    const testSub = eventBus.getStream(DataHoverEvent).subscribe(() => {
-      firedDuringPublish = isPublishing.current;
-    });
-    isPublishing.current = true;
-    eventBus.publish(new DataHoverEvent({ point: { time: 0 } }));
-    isPublishing.current = false;
-    testSub.unsubscribe();
-    console.log('[cesium-plugin] event bus is synchronous:', firedDuringPublish);
-  }, [eventBus]); // eslint-disable-line react-hooks/exhaustive-deps
+    const id = setInterval(() => {
+      const viewer = viewerRef.current?.cesiumElement;
+      if (!viewer || !viewer.clock.shouldAnimate) { return; }
+      const timeMs = JulianDate.toDate(viewer.clock.currentTime).getTime();
+      isOwnPublish.current = true;
+      eventBus.publish(new DataHoverEvent({ point: { time: timeMs } }));
+      isOwnPublish.current = false;
+    }, 500);
+    return () => clearInterval(id);
+  }, [eventBus]);
 
   useEffect(() => {
     if (!options.subscribeToDataHoverEvent) {
@@ -1435,12 +1436,18 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     }
 
     const dataHoverSubscriber = eventBus.getStream(DataHoverEvent).subscribe((event) => {
+      if (isOwnPublish.current) { return; }
+      const viewer = viewerRef.current?.cesiumElement;
+      if (viewer?.clock.shouldAnimate) { viewer.clock.shouldAnimate = false; }
       if (event?.payload?.point?.time) {
         setTimestamp(JulianDate.fromDate(new Date(event.payload.point.time)));
       }
     });
 
     const graphHoverSubscriber = eventBus.getStream(LegacyGraphHoverEvent).subscribe((event) => {
+      if (isOwnPublish.current) { return; }
+      const viewer = viewerRef.current?.cesiumElement;
+      if (viewer?.clock.shouldAnimate) { viewer.clock.shouldAnimate = false; }
       if (event?.payload?.point?.time) {
         setTimestamp(JulianDate.fromDate(new Date(event.payload.point.time)));
       }
