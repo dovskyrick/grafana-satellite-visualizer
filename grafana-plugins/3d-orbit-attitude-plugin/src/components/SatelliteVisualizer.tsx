@@ -1412,6 +1412,23 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
     imageryLayers.addImageryProvider(cartoNoLabelsProvider);
   }, [viewerKey]); // Run when Viewer is created/remounted
 
+  // One-time test: verify Grafana's event bus dispatches synchronously.
+  // Check the browser console for '[cesium-plugin] event bus is synchronous: true/false'.
+  // true  → the isOwnPublish ref guard is safe to use as designed.
+  // false → flag must be cleared with setTimeout(..., 0) instead.
+  useEffect(() => {
+    let firedDuringPublish = false;
+    const isPublishing = { current: false };
+    const testSub = eventBus.getStream(DataHoverEvent).subscribe(() => {
+      firedDuringPublish = isPublishing.current;
+    });
+    isPublishing.current = true;
+    eventBus.publish(new DataHoverEvent({ point: { time: 0 } }));
+    isPublishing.current = false;
+    testSub.unsubscribe();
+    console.log('[cesium-plugin] event bus is synchronous:', firedDuringPublish);
+  }, [eventBus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!options.subscribeToDataHoverEvent) {
       return;
