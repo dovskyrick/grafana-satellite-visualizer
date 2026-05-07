@@ -25,7 +25,7 @@ function clampToWindow(fromMs: number, toMs: number): [number, number] {
 // tight zoom-ins stay smooth in Cesium. Ceiling at 60 s preserves current
 // behaviour for normal windows; floor at 10 s is the physical resolution limit.
 const MIN_POINTS = 120;
-const MIN_STEP_S = 10;
+const MIN_STEP_S = 1;
 const MAX_STEP_S = 60;
 
 function adaptiveStepS(durationSeconds: number): number {
