@@ -1696,6 +1696,33 @@ export const SatelliteVisualizer: React.FC<Props> = ({ options, onOptionsChange,
             );
           })
         }
+        {/* Ghost tracker for Satellite Focus mode — mirrors the celestial tracker pattern.
+            Always present for the tracked satellite regardless of hiddenSatellites, so
+            hiding or unhiding never swaps viewer.trackedEntity and the camera stays stable.
+            Gated strictly to satellite mode — celestial tracker block above is untouched. */}
+        {selectedMode === 'satellite' && trackedSatelliteId &&
+          satellites
+            .filter(sat => sat.id === trackedSatelliteId)
+            .map((satellite) => (
+              <Entity
+                key={`${satellite.id}-satellite-tracker`}
+                id={`${satellite.id}-satellite-tracker`}
+                name={`${satellite.name} (Satellite Tracking)`}
+                position={satellite.position}
+                orientation={satellite.orientation}
+                availability={satellite.availability}
+                tracked={isTracked}
+              >
+                <PointGraphics
+                  pixelSize={15}
+                  color={Color.fromAlpha(Color.BLACK, 0.0)}
+                  outlineColor={Color.fromAlpha(Color.BLACK, 0.0)}
+                  outlineWidth={0}
+                />
+              </Entity>
+            ))
+        }
+
         {/* Body Axes (X/Y/Z attitude vectors) - Per-satellite - Hidden in Celestial Map mode */}
         {selectedMode !== 'celestial' && options.showAttitudeVisualization && showBodyAxes && satellites
           .filter(sat => !hiddenSatellites.has(sat.id))

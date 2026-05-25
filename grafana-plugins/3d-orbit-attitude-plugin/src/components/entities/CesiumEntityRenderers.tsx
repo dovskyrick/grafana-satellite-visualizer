@@ -148,7 +148,7 @@ export const SatelliteEntityRenderer: React.FC<SatelliteEntityProps> = ({
         availability={satellite.availability}
         position={satellite.position}
         orientation={satellite.orientation}
-        tracked={isTracked}
+        tracked={false}
       >
         {/* Point representation */}
         {options.assetMode === AssetMode.Point && (
