@@ -12,6 +12,8 @@ one feature per pull request. This branch (`upstreaming`) only holds planning ma
 | `02-feature-roadmap.md` | Every feature split into PR-sized pieces, ordered, with difficulty |
 | `03-pr1-plan.md` | Detailed plan for the first PR |
 | `04-pr-quality-checklist.md` | What "clean for delivery" means for each PR |
+| `05-eci-ecef-investigation.md` | Why the fork's quaternion frame differs from Lucas's |
+| `06-data-adapter-interfaces.md` | Data interfaces (adapters): verdict and timeline |
 
 ## Two sides, two standards
 

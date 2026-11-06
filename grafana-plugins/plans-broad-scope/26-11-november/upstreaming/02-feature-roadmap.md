@@ -8,8 +8,9 @@ Difficulty: **S** ≈ 1–2 days, **M** ≈ 3–5 days, **L** ≈ 1–2 weeks, *
 | # | PR | Partition | Difficulty | Depends on |
 | --- | --- | --- | --- | --- |
 | 1 | Body axes (X/Y/Z attitude arrows) | Attitude | S | — |
+| 1b | Refactor: data adapters, no behaviour change (see `06-…`) | Foundation | S–M | — |
 | 2 | Reference-frame axes (LVLH, ITRF, ICRF) + legend | Attitude | M | 1 |
-| 3 | Multi-satellite data (N frames, field names, 8-column fallback) | Multi-object | M | — |
+| 3 | Multi-satellite data (`namedFields` adapter, N tracks) | Multi-object | M | 1b |
 | 4 | Sidebar: per-object show/hide + pick tracked object | Multi-object | M | 3 |
 | 5 | Sensor cones from body frame | Attitude | L | 1, 3 + data-format talk with Lucas |
 | 6 | Sensor FOV ground footprint | Attitude | M | 5 |
