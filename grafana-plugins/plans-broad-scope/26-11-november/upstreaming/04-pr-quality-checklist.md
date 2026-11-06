@@ -2,6 +2,7 @@
 
 ## Before opening
 
+- Check the refactor ledger in `02-…`: does this PR absorb anything listed? Add new entries.
 - Branch from latest upstream `main`, one feature only.
 - `npm run lint`, `npm run typecheck`, `npm run test:ci` all green; `npm run build` works.
 - New logic lives in small files with unit tests; Resium mocked like the existing test.

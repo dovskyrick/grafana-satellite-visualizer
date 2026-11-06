@@ -11,8 +11,10 @@ with unit tests, a panel option, a README section.
 
 ## Scope
 
-Three arrows (X red, Y green, Z blue) from the satellite, rotated by the
-existing orientation property. Panel options: `showBodyAxes` (default **off**, so
+Three arrows from the satellite, rotated by the existing orientation property.
+**Colour: all greyish-white, not red/green/blue** (Ricardo's decision, 2026-11-06).
+Since the colours are identical, each arrow needs an `X`/`Y`/`Z` text label to tell
+them apart. Per-axis colour options can come later if anyone asks. Panel options: `showBodyAxes` (default **off**, so
 existing dashboards look the same), `bodyAxesLength` (metres). Optional: axis colors.
 Out of scope: LVLH/ITRF/ICRF frames, legend, sensor cones, multi-satellite.
 

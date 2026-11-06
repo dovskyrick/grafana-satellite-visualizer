@@ -55,6 +55,28 @@ stations — no new data format needed. The polar azimuth/elevation view and LoS
 come after multi-object and camera views, as you said. `computeAzEl` and the
 polar SVG are fairly isolated, so the port is mostly UI work once the base exists.
 
+## Refactor ledger (so early files don't get left behind)
+
+Not left to memory. Every PR that adds a simple file which a later abstraction
+should absorb gets a line here. Each PR plan starts by checking this list
+(`04-…` checklist). Tests make the move safe: they must pass unchanged after it.
+
+| Added in | Thing | Revisit in | Expected change |
+| --- | --- | --- | --- |
+| PR 1 | `BodyAxes` takes `position` + `orientation` props | PR 3 | Call site maps over `SatelliteTrack[]`; component itself likely unchanged |
+| PR 1 | Orientation read straight from upstream's parsing | PR 1b | Comes from the adapter's scene model instead |
+
+Renderers like `BodyAxes` sit in the stable layer: the adapter refactor changes
+where data comes from, not how it's drawn. So PR 1's files should mostly survive.
+
+## Releases and compatibility
+
+Additive changes never break dashboards: new options with defaults, a sidebar
+that only appears with 2+ satellites. Each merged PR is a normal minor release
+(Lucas runs `npm version minor`). Only renaming or removing options breaks saved
+dashboards. When that's truly needed, Grafana's `setMigrationHandler` converts old
+saved options automatically, and the release is a major version. Avoid it when possible.
+
 ## Risks across all PRs
 
 Quaternion frame convention (fork uses ECEF as-is, upstream ECI). Resium and

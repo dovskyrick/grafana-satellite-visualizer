@@ -17,6 +17,7 @@ one feature per pull request. This branch (`upstreaming`) only holds planning ma
 | `07-eci-ecef-maths-and-policy.md` | Is ECI→ECEF maths risky? Where conversion should live |
 | `08-best-practices-primer.md` | General engineering, testing, TS and React practices, applied here |
 | `09-open-space-collective-practices.md` | House practices of Lucas's organisation |
+| `10-pr1-issue-draft.md` | Issue text to open before the body-axes PR |
 
 ## Two sides, two standards
 
