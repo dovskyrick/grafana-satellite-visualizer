@@ -38,6 +38,16 @@ Adapters are tried in order. The first whose `canParse` says yes wins.
 
 Sensors come later as their own adapter step once the format is agreed with Lucas.
 
+## Settings that follow the data (Ricardo's idea, 2026-11-06)
+
+Lucas's 8-column data shows exactly today's view. Richer data unlocks new
+features: settings for multi-satellite or sensors only appear when the data contains them.
+This keeps the settings minimal. **It's technically possible:** Grafana's option
+`showIf(currentOptions, data)` receives the panel's data frames (checked in
+`@grafana/data` types). The adapter's `canParse` can drive it. Discuss with Lucas.
+For PR 1, body axes stay a plain toggle, off by default. Moving toggles into the
+panel UI later is a separate design decision.
+
 ## What not to build
 
 No plugin registry, no dynamic loading, no class hierarchies, no config UI for
