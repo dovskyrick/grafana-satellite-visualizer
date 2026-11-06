@@ -14,6 +14,7 @@ one feature per pull request. This branch (`upstreaming`) only holds planning ma
 | `04-pr-quality-checklist.md` | What "clean for delivery" means for each PR |
 | `05-eci-ecef-investigation.md` | Why the fork's quaternion frame differs from Lucas's |
 | `06-data-adapter-interfaces.md` | Data interfaces (adapters): verdict and timeline |
+| `07-eci-ecef-maths-and-policy.md` | Is ECI→ECEF maths risky? Where conversion should live |
 
 ## Two sides, two standards
 
