@@ -15,6 +15,8 @@ one feature per pull request. This branch (`upstreaming`) only holds planning ma
 | `05-eci-ecef-investigation.md` | Why the fork's quaternion frame differs from Lucas's |
 | `06-data-adapter-interfaces.md` | Data interfaces (adapters): verdict and timeline |
 | `07-eci-ecef-maths-and-policy.md` | Is ECI→ECEF maths risky? Where conversion should live |
+| `08-best-practices-primer.md` | General engineering, testing, TS and React practices, applied here |
+| `09-open-space-collective-practices.md` | House practices of Lucas's organisation |
 
 ## Two sides, two standards
 
